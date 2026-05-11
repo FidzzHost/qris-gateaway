@@ -30,9 +30,15 @@ const topupLimiter = rateLimit({
   message: { status: 429, message: "Batas topup tercapai. Tunggu sebentar." },
 });
 
+const configLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { status: 429, message: "Terlalu banyak ambil config." },
+});
+
 app.options("/api/*", (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.status(204).end();
@@ -82,16 +88,18 @@ function strictGuard(req, res, next) {
   res.setHeader("Cache-Control", "no-store");
   next();
 }
-app.get("/api/config", (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
-  res.setHeader("Cache-Control", "public, max-age=300");
+
+// PASANG GUARD DULU BUAT SEMUA /api/*
+app.use("/api", apiLimiter, strictGuard);
+
+// /api/config SEKARANG UDAH KENA GUARD
+app.get("/api/config", configLimiter, (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
   if (!SUPABASE_URL || !SUPABASE_KEY) {
     return res.status(500).json({ status: 500, message: "Konfigurasi server belum lengkap." });
   }
   res.json({ supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_KEY });
 });
-
-app.use("/api", apiLimiter, strictGuard);
 
 app.post("/api/topup", topupLimiter, async (req, res) => {
   try {
@@ -156,6 +164,11 @@ app.get("/api/history", async (req, res) => {
   } catch (err) {
     return res.status(500).json({ status: 500, message: "Proxy error: " + err.message });
   }
+});
+
+// 404 JSON buat API yang ga ada, biar ga jatoh ke HTML
+app.all("/api/*", (req, res) => {
+  res.status(404).json({ status: 404, message: "Not Found" });
 });
 
 app.use(express.static(path.join(__dirname, "public")));
