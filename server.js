@@ -16,81 +16,50 @@ const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "https://www.fidzzonex.web.
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: "16kb" }));
 
-const apiLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { status: 429, message: "Terlalu banyak request. Tunggu 1 menit." },
-});
-
-const topupLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 5,
-  message: { status: 429, message: "Batas topup tercapai. Tunggu sebentar." },
-});
-
-const configLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 10,
-  message: { status: 429, message: "Terlalu banyak ambil config." },
-});
+const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 30 });
+const topupLimiter = rateLimit({ windowMs: 60 * 1000, max: 5 });
+const configLimiter = rateLimit({ windowMs: 60 * 1000, max: 20 });
 
 app.options("/api/*", (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.status(204).end();
 });
 
-function strictGuard(req, res, next) {
-  const origin = req.headers["origin"] || "";
-  const referer = req.headers["referer"] || "";
-  const secSite = req.headers["sec-fetch-site"] || "";
+// Guard santai buat yang butuh fungsi
+function basicGuard(req, res, next) {
   const ua = (req.headers["user-agent"] || "").toLowerCase();
-  const method = req.method;
-
-  // 1. Blokir UA tools
-  if (["curl", "wget", "python", "httpie", "postman", "insomnia", "axios", "go-http"].some(b => ua.includes(b))) {
-    return res.status(403).json({ status: 403, message: "Forbidden: Client not allowed" });
+  const referer = req.headers["referer"] || "";
+  
+  // Cuma blokir curl/wget doang
+  if (ua.includes("curl") || ua.includes("wget") || ua.includes("python")) {
+    return res.status(403).json({ status: 403, message: "Forbidden" });
   }
-
-  // 2. Method check
-  if (!["GET", "POST", "DELETE", "OPTIONS"].includes(method)) {
-    return res.status(405).end();
-  }
-
-  // 3. Referer wajib, tapi longgarin dikit
+  
+  // Referer harus dari domain lu
   if (!referer.includes("fidzzonex.web.id")) {
-    return res.status(403).json({ status: 403, message: "Forbidden: Bad referer" });
+    return res.status(403).json({ status: 403, message: "Bad referer" });
   }
-
-  // 4. sec-fetch ga wajib buat POST, kadang ilang di mobile
-  // if (method === "GET" && (!secSite || secSite !== "same-origin")) {
-  //   return res.status(403).end();
-  // }
-
+  
   res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Vary", "Origin");
   res.setHeader("Cache-Control", "no-store");
   next();
 }
 
-// PASANG GUARD DULU BUAT SEMUA /api/*
-app.use("/api", apiLimiter, strictGuard);
-
-// /api/config SEKARANG UDAH KENA GUARD
-app.get("/api/config", configLimiter, (req, res) => {
-  res.setHeader("Cache-Control", "no-store");
+// /api/config pake guard santai + rate limit doang
+app.get("/api/config", configLimiter, basicGuard, (req, res) => {
   if (!SUPABASE_URL || !SUPABASE_KEY) {
     return res.status(500).json({ status: 500, message: "Konfigurasi server belum lengkap." });
   }
   res.json({ supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_KEY });
 });
 
-app.post("/api/topup", topupLimiter, async (req, res) => {
+// Yang lain baru pake limiter biasa
+app.use("/api", apiLimiter);
+
+app.post("/api/topup", basicGuard, topupLimiter, async (req, res) => {
   try {
     const { nominal } = req.body;
     if (!nominal || isNaN(nominal) || Number(nominal) < 1000) {
@@ -108,15 +77,11 @@ app.post("/api/topup", topupLimiter, async (req, res) => {
   }
 });
 
-app.get("/api/check-status", async (req, res) => {
+app.get("/api/check-status", basicGuard, async (req, res) => {
   try {
     const { idTransaksi } = req.query;
-    if (!idTransaksi) {
-      return res.status(400).json({ status: 400, message: "idTransaksi wajib diisi" });
-    }
-    const upstream = await fetch(
-      `https://fr3newera.com/api/v1/check-status?idTransaksi=${encodeURIComponent(idTransaksi)}&apikey=${FR3_KEY}`
-    );
+    if (!idTransaksi) return res.status(400).json({ status: 400, message: "idTransaksi wajib diisi" });
+    const upstream = await fetch(`https://fr3newera.com/api/v1/check-status?idTransaksi=${encodeURIComponent(idTransaksi)}&apikey=${FR3_KEY}`);
     const data = await upstream.json();
     return res.status(200).json(data);
   } catch (err) {
@@ -124,12 +89,10 @@ app.get("/api/check-status", async (req, res) => {
   }
 });
 
-app.post("/api/cancel", async (req, res) => {
+app.post("/api/cancel", basicGuard, async (req, res) => {
   try {
     const { idTransaksi } = req.body;
-    if (!idTransaksi) {
-      return res.status(400).json({ status: 400, message: "idTransaksi wajib diisi" });
-    }
+    if (!idTransaksi) return res.status(400).json({ status: 400, message: "idTransaksi wajib diisi" });
     const upstream = await fetch("https://fr3newera.com/api/v1/topup/cancel", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -142,37 +105,16 @@ app.post("/api/cancel", async (req, res) => {
   }
 });
 
-app.get("/api/history", async (req, res) => {
-  try {
-    const { page = 1, limit = 10, filter = "all" } = req.query;
-    const upstream = await fetch(
-      `https://fr3newera.com/api/v1/history?apikey=${FR3_KEY}&page=${page}&limit=${limit}&filter=${filter}`
-    );
-    const data = await upstream.json();
-    return res.status(200).json(data);
-  } catch (err) {
-    return res.status(500).json({ status: 500, message: "Proxy error: " + err.message });
-  }
-});
-
-// 404 JSON buat API yang ga ada, biar ga jatoh ke HTML
 app.all("/api/*", (req, res) => {
   res.status(404).json({ status: 404, message: "Not Found" });
 });
 
 app.use(express.static(path.join(__dirname, "public")));
-
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
-});
+app.get("*", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
 
 const isVercel = !!process.env.VERCEL;
-
 if (!isVercel) {
   const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
-  });
+  app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
 }
-
 export default app;
