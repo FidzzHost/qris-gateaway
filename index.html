@@ -600,28 +600,20 @@ function clearSession() { sessionStorage.removeItem(SS_KEY); }
 // ============================================================
 async function loginGoogle() {
   const btn = document.getElementById("btn-google");
-
   btn.disabled = true;
   btn.innerHTML = `<div class="spin b"></div> Mengarahkan ke Google…`;
 
   const { error } = await sb.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: "https://www.fidzz-codex.my.id"
+      redirectTo: 'https://www.fidzzonex.web.id' // exact, tanpa /
     }
   });
 
   if (error) {
     toast("⚠️ " + error.message, "err");
-
     btn.disabled = false;
-
-    btn.innerHTML = `
-      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-      width="20"
-      height="20"
-      alt="G"/> Masuk dengan Google
-    `;
+    btn.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"/> Masuk dengan Google`;
   }
 }
 
@@ -989,22 +981,48 @@ function onSuccess(){
 
 
 // Auth listener — dipanggil setelah Supabase siap
-function startAuthListener() {
-  sb.auth.onAuthStateChange((event, session) => {
-    if (session?.user) {
-      applyUser(session.user);
-      // Restore QR jika ada sesi aktif
-      if (loadSession() && S.qrString && S.trxId) {
-        resetQrPage(); renderDetail(); renderQR();
-        goPage("pg-qr");
-        startCountdown(S.secsLeft);
-        S.expireTimer = setTimeout(() => triggerExpired(), S.secsLeft * 1000);
-        S.checkTimer  = setInterval(() => autoCheck(), 5000);
-        toast("🔄 Sesi pembayaran dipulihkan", "info");
-      } else {
-        goPage("pg-landing");
-      }
+async function startAuthListener() {
+  // 1. Kalo ada ?code= langsung tuker paksa
+  const hasCode = window.location.search.includes('code=');
+  if (hasCode) {
+    const { error } = await sb.auth.exchangeCodeForSession(window.location.href);
+    // Bersihin URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+    if (error) {
+      console.error('Exchange error:', error);
+      toast("⚠️ Login gagal: " + error.message, "err");
+      goPage("pg-login");
+      return;
+    }
+  }
+
+  // 2. Cek session setelah tuker code
+  const { data: { session } } = await sb.auth.getSession();
+  
+  if (session?.user) {
+    applyUser(session.user);
+    if (loadSession() && S.qrString && S.trxId) {
+      resetQrPage(); renderDetail(); renderQR();
+      goPage("pg-qr");
+      startCountdown(S.secsLeft);
+      S.expireTimer = setTimeout(() => triggerExpired(), S.secsLeft * 1000);
+      S.checkTimer  = setInterval(() => autoCheck(), 5000);
+      toast("🔄 Sesi pembayaran dipulihkan", "info");
     } else {
+      goPage("pg-landing");
+    }
+  } else {
+    goPage("pg-login");
+  }
+
+  // 3. Dengerin event selanjutnya
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN' && session?.user) {
+      applyUser(session.user);
+      goPage("pg-landing");
+    }
+    if (event === 'SIGNED_OUT') {
+      currentUser = null;
       goPage("pg-login");
     }
   });
