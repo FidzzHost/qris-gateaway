@@ -48,42 +48,31 @@ function strictGuard(req, res, next) {
   const origin = req.headers["origin"] || "";
   const referer = req.headers["referer"] || "";
   const secSite = req.headers["sec-fetch-site"] || "";
-  const secMode = req.headers["sec-fetch-mode"] || "";
   const ua = (req.headers["user-agent"] || "").toLowerCase();
   const method = req.method;
 
-  // 1. Blokir User-Agent curl dkk
+  // 1. Blokir UA tools
   if (["curl", "wget", "python", "httpie", "postman", "insomnia", "axios", "go-http"].some(b => ua.includes(b))) {
     return res.status(403).json({ status: 403, message: "Forbidden: Client not allowed" });
   }
 
-  // 2. Cuma allow method GET, POST, DELETE, OPTIONS
-  const allowedMethods = ["GET", "POST", "DELETE", "OPTIONS"];
-  if (!allowedMethods.includes(method)) {
-    return res.status(405).json({ status: 405, message: "Method Not Allowed" });
+  // 2. Method check
+  if (!["GET", "POST", "DELETE", "OPTIONS"].includes(method)) {
+    return res.status(405).end();
   }
 
-  // 3. WAJIB ada Referer dari domain lu
-  if (!referer || !referer.startsWith(ALLOWED_ORIGIN)) {
-    return res.status(403).json({ status: 403, message: "Forbidden: Referer required" });
+  // 3. Referer wajib, tapi longgarin dikit
+  if (!referer.includes("fidzzonex.web.id")) {
+    return res.status(403).json({ status: 403, message: "Forbidden: Bad referer" });
   }
 
-  // 4. Wajib ada sec-fetch-* dari browser
-  if (!secSite || !secMode) {
-    return res.status(403).json({ status: 403, message: "Forbidden: Missing browser headers" });
-  }
-  if (secSite !== "same-origin" && secSite !== "same-site") {
-    return res.status(403).json({ status: 403, message: "Forbidden: Cross-site" });
-  }
-
-  // 5. Origin harus sama, kecuali GET bisa null origin
-  if (method !== "GET" && origin && !origin.startsWith(ALLOWED_ORIGIN)) {
-    return res.status(403).json({ status: 403, message: "Forbidden: Invalid origin" });
-  }
+  // 4. sec-fetch ga wajib buat POST, kadang ilang di mobile
+  // if (method === "GET" && (!secSite || secSite !== "same-origin")) {
+  //   return res.status(403).end();
+  // }
 
   res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
   res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   res.setHeader("Vary", "Origin");
   res.setHeader("Cache-Control", "no-store");
   next();
