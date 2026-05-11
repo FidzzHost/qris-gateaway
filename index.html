@@ -78,23 +78,6 @@ body{font-family:'Inter',sans-serif;font-size:14px;line-height:1.55;color:var(--
 .btn-red:hover:not(:disabled){background:var(--red-200);}
 .btn-stack{display:flex;flex-direction:column;gap:8px;}
 
-/* GOOGLE BTN */
-.btn-google{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:50px;border:1.5px solid var(--g200);border-radius:var(--r-md);background:var(--white);color:var(--g900);font-family:'Inter',sans-serif;font-size:14px;font-weight:600;cursor:pointer;box-shadow:var(--sh-sm);transition:border-color .18s,box-shadow .18s,transform .1s;}
-.btn-google:hover{border-color:var(--g300);box-shadow:var(--sh-md);}
-.btn-google:active{transform:scale(.97);}
-.btn-google:disabled{opacity:.5;cursor:not-allowed;}
-.btn-google img{width:20px;height:20px;flex-shrink:0;}
-
-/* USER HEADER */
-.user-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--white);border:1px solid var(--g200);border-radius:var(--r-md);box-shadow:var(--sh-sm);}
-.user-info{display:flex;align-items:center;gap:10px;}
-.user-av{width:34px;height:34px;border-radius:50%;background:var(--blue);color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;overflow:hidden;}
-.user-av img{width:100%;height:100%;object-fit:cover;}
-.user-name{font-size:13px;font-weight:600;color:var(--g900);line-height:1.2;}
-.user-email{font-size:11px;color:var(--g500);}
-.btn-logout{height:30px;padding:0 10px;border-radius:var(--r-sm);border:1.5px solid var(--g200);background:var(--g50);color:var(--g500);font-family:'Inter',sans-serif;font-size:11.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all .15s;white-space:nowrap;flex-shrink:0;}
-.btn-logout:hover{background:var(--red-100);color:var(--red);border-color:var(--red-200);}
-
 /* FEAT LIST */
 .feat-list{display:flex;flex-direction:column;gap:8px;}
 .feat-item{display:flex;align-items:center;gap:12px;padding:12px;background:var(--g50);border:1px solid var(--g200);border-radius:var(--r-md);}
@@ -208,32 +191,6 @@ body{font-family:'Inter',sans-serif;font-size:14px;line-height:1.55;color:var(--
 .hist-filter button.on{background:var(--blue);border-color:var(--blue);color:white;}
 .hist-filter button:hover:not(.on){border-color:var(--blue-100);background:var(--blue-50);color:var(--blue);}
 
-/* AUTH TABS */
-.auth-tabs{display:flex;border-radius:var(--r-md);background:var(--g100);padding:4px;gap:4px;margin-bottom:4px;}
-.auth-tab{flex:1;height:36px;border:none;border-radius:var(--r-sm);background:transparent;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--g500);cursor:pointer;transition:all .18s;}
-.auth-tab.on{background:var(--white);color:var(--blue);box-shadow:var(--sh-sm);}
-
-/* DIVIDER OR */
-.or-divider{display:flex;align-items:center;gap:10px;}
-.or-divider::before,.or-divider::after{content:'';flex:1;height:1px;background:var(--g200);}
-.or-divider span{font-size:12px;color:var(--g400);font-weight:500;white-space:nowrap;}
-
-/* SHOW/HIDE PASSWORD */
-.input-eye{position:relative;}
-.input-eye input{padding-right:44px;}
-.eye-btn{position:absolute;right:12px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;color:var(--g400);display:flex;align-items:center;padding:0;}
-.eye-btn:hover{color:var(--g700);}
-
-/* AUTH ERROR */
-.auth-err{padding:10px 13px;background:var(--red-100);border:1px solid var(--red-200);border-radius:var(--r-md);font-size:12.5px;color:var(--red);font-weight:500;animation:slideUp .2s ease both;}
-
-/* SUCCESS VERIFY */
-.verify-box{text-align:center;padding:16px 8px;}
-.verify-icon{font-size:40px;margin-bottom:10px;}
-.verify-title{font-size:16px;font-weight:800;color:var(--g900);margin-bottom:6px;}
-.verify-desc{font-size:13px;color:var(--g500);line-height:1.6;}
-
-
 /* TOAST */
 #toast-box{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:9999;pointer-events:none;width:calc(100% - 32px);max-width:380px;}
 .toast{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--white);border-radius:var(--r-md);font-size:13px;font-weight:600;box-shadow:var(--sh-lg);animation:tIn .3s cubic-bezier(.34,1.3,.64,1) both;}
@@ -279,102 +236,14 @@ body{font-family:'Inter',sans-serif;font-size:14px;line-height:1.55;color:var(--
 
 <div id="app">
 
-  <!-- PAGE: LOADING (saat cek auth) -->
-  <div id="pg-loading" class="page active">
-    <div class="page-loading">
-      <div class="spin g" style="width:28px;height:28px;border-width:3px;"></div>
-      <p>Memuat…</p>
-    </div>
-  </div>
-
-  <!-- PAGE: LOGIN -->
-  <div id="pg-login" class="page">
+  <!-- PAGE: FORM -->
+  <div id="pg-form" class="page active">
     <div class="brand">
       <div class="brand-row">
         <div class="brand-icon"><svg viewBox="0 0 24 24"><path d="M3 3h7v7H3V3zm1 1v5h5V4H4zm1 1h3v3H5V5zM14 3h7v7h-7V3zm1 1v5h5V4h-5zm1 1h3v3h-3V5zM3 14h7v7H3v-7zm1 1v5h5v-5H4zm1 1h3v3H5v-3zM14 14h2v2h-2v-2zm3 0h2v2h-2v-2zM14 17h2v2h-2v-2zm3 0h2v2h-2v-2z"/></svg></div>
         <span class="brand-name">QRIS<span>Pay</span></span>
       </div>
       <p class="brand-tag">Pembayaran digital cepat &amp; aman</p>
-    </div>
-    <div class="card fc g12">
-      <div style="text-align:center;padding:8px 0 8px;">
-        <div style="font-size:20px;font-weight:800;color:var(--g900);margin-bottom:6px;">Selamat Datang 👋</div>
-        <div style="font-size:13px;color:var(--g500);line-height:1.6;">Login untuk mulai pembayaran dan melihat riwayat transaksi Anda</div>
-      </div>
-      <button class="btn-google" id="btn-google" onclick="loginGoogle()">
-        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G"/>
-        Masuk dengan Google
-      </button>
-      <hr class="sep"/>
-      <div class="fc g8" style="padding:4px 0;">
-        <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--g500);">
-          <svg width="14" height="14" fill="none" stroke="var(--green)" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
-          Riwayat transaksi tersimpan per akun Google
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--g500);">
-          <svg width="14" height="14" fill="none" stroke="var(--green)" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
-          Login sekali, akses dari perangkat manapun
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--g500);">
-          <svg width="14" height="14" fill="none" stroke="var(--green)" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
-          Data Anda aman &amp; tidak kami jual
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- PAGE: LANDING -->
-  <div id="pg-landing" class="page">
-    <div class="brand">
-      <div class="brand-row">
-        <div class="brand-icon"><svg viewBox="0 0 24 24"><path d="M3 3h7v7H3V3zm1 1v5h5V4H4zm1 1h3v3H5V5zM14 3h7v7h-7V3zm1 1v5h5V4h-5zm1 1h3v3h-3V5zM3 14h7v7H3v-7zm1 1v5h5v-5H4zm1 1h3v3H5v-3zM14 14h2v2h-2v-2zm3 0h2v2h-2v-2zM14 17h2v2h-2v-2zm3 0h2v2h-2v-2z"/></svg></div>
-        <span class="brand-name">QRIS<span>Pay</span></span>
-      </div>
-    </div>
-    <div class="user-header">
-      <div class="user-info">
-        <div class="user-av" id="user-av">?</div>
-        <div>
-          <div class="user-name" id="user-name">—</div>
-          <div class="user-email" id="user-email">—</div>
-        </div>
-      </div>
-      <button class="btn-logout" onclick="doLogout()">
-        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-        Keluar
-      </button>
-    </div>
-    <div class="card">
-      <div class="card-title">
-        <div class="t-icon"><svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><rect x="3" y="3" width="18" height="18" rx="3"/></svg></div>
-        Cara Pembayaran
-      </div>
-      <div class="feat-list">
-        <div class="feat-item"><div class="feat-num">1</div><div class="feat-txt"><strong>Masukkan Nominal</strong><span>Pilih atau ketik jumlah top up</span></div></div>
-        <div class="feat-item"><div class="feat-num">2</div><div class="feat-txt"><strong>Scan QR Code</strong><span>Buka m-banking atau e-wallet</span></div></div>
-        <div class="feat-item"><div class="feat-num">3</div><div class="feat-txt"><strong>Selesai Otomatis</strong><span>Status diperbarui secara realtime</span></div></div>
-      </div>
-      <hr class="sep mt-16"/>
-      <div class="btn-stack mt-12">
-        <button class="btn btn-blue" onclick="goPage('pg-form')">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-          Mulai Pembayaran
-        </button>
-        <button class="btn btn-outline" onclick="openHistory()">
-          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
-          Riwayat Transaksi
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- PAGE: FORM -->
-  <div id="pg-form" class="page">
-    <div class="brand">
-      <div class="brand-row">
-        <div class="brand-icon"><svg viewBox="0 0 24 24"><path d="M3 3h7v7H3V3zm1 1v5h5V4H4zm1 1h3v3H5V5zM14 3h7v7h-7V3zm1 1v5h5V4h-5zm1 1h3v3h-3V5zM3 14h7v7H3v-7zm1 1v5h5v-5H4zm1 1h3v3H5v-3zM14 14h2v2h-2v-2zm3 0h2v2h-2v-2zM14 17h2v2h-2v-2zm3 0h2v2h-2v-2z"/></svg></div>
-        <span class="brand-name">QRIS<span>Pay</span></span>
-      </div>
     </div>
     <div class="card fc g12">
       <div class="card-title">
@@ -406,7 +275,17 @@ body{font-family:'Inter',sans-serif;font-size:14px;line-height:1.55;color:var(--
           <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
           Buat QRIS
         </button>
-        <button class="btn btn-outline" onclick="goPage('pg-landing')">Kembali</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">
+        <div class="t-icon"><svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><rect x="3" y="3" width="18" height="18" rx="3"/></svg></div>
+        Cara Pembayaran
+      </div>
+      <div class="feat-list">
+        <div class="feat-item"><div class="feat-num">1</div><div class="feat-txt"><strong>Masukkan Nominal</strong><span>Pilih atau ketik jumlah top up</span></div></div>
+        <div class="feat-item"><div class="feat-num">2</div><div class="feat-txt"><strong>Scan QR Code</strong><span>Buka m-banking atau e-wallet</span></div></div>
+        <div class="feat-item"><div class="feat-num">3</div><div class="feat-txt"><strong>Selesai Otomatis</strong><span>Status diperbarui secara realtime</span></div></div>
       </div>
     </div>
   </div>
@@ -490,45 +369,7 @@ body{font-family:'Inter',sans-serif;font-size:14px;line-height:1.55;color:var(--
           <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
           Transaksi Baru
         </button>
-        <button class="btn btn-outline" onclick="openHistory()">
-          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
-          Lihat Riwayat
-        </button>
       </div>
-    </div>
-  </div>
-
-  <!-- PAGE: HISTORY -->
-  <div id="pg-history" class="page">
-    <div class="brand">
-      <div class="brand-row">
-        <div class="brand-icon"><svg viewBox="0 0 24 24"><path d="M3 3h7v7H3V3zm1 1v5h5V4H4zm1 1h3v3H5V5zM14 3h7v7h-7V3zm1 1v5h5V4h-5zm1 1h3v3h-3V5zM3 14h7v7H3v-7zm1 1v5h5v-5H4zm1 1h3v3H5v-3zM14 14h2v2h-2v-2zm3 0h2v2h-2v-2zM14 17h2v2h-2v-2zm3 0h2v2h-2v-2z"/></svg></div>
-        <span class="brand-name">QRIS<span>Pay</span></span>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-title">
-        <div class="t-icon"><svg viewBox="0 0 24 24"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg></div>
-        Riwayat Transaksi
-      </div>
-      <!-- Filter tabs -->
-      <div class="hist-filter" id="hist-filter">
-        <button class="on" onclick="setFilter('all',this)">Semua</button>
-        <button onclick="setFilter('success',this)">Berhasil</button>
-        <button onclick="setFilter('pending',this)">Pending</button>
-        <button onclick="setFilter('canceled',this)">Dibatalkan</button>
-      </div>
-      <!-- Content -->
-      <div id="hist-content">
-        <div class="hist-empty">
-          <svg class="hist-empty-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
-          <p>Memuat riwayat…</p>
-        </div>
-      </div>
-      <button class="btn btn-outline mt-12" onclick="goPage('pg-landing')">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-        Kembali
-      </button>
     </div>
   </div>
 
@@ -537,7 +378,7 @@ body{font-family:'Inter',sans-serif;font-size:14px;line-height:1.55;color:var(--
 <script>
 // Keys diambil dari server via /api/config — tidak ada key di sini
 const { createClient } = supabase;
-let sb = null; // akan diinit oleh initSupabase()
+let sb = null;
 
 async function initSupabase() {
   try {
@@ -551,7 +392,6 @@ async function initSupabase() {
         storage: window.localStorage
       }
     });
-    // Setelah Supabase siap, mulai cek auth
     startAuthListener();
   } catch(e) {
     console.error("Gagal memuat konfigurasi:", e);
@@ -565,11 +405,6 @@ let S = {
   trxId:null,amount:0,fee:0,total:0,date:null,qrString:null,
   checkTimer:null,expireTimer:null,countdown:null,secsLeft:300,done:false
 };
-
-// ── HISTORY STATE ──
-let histFilter = "all";
-let histPage   = 1;
-let histHasMore = false;
 
 // ============================================================
 // SESSION STORAGE — persist QR saat refresh
@@ -596,123 +431,37 @@ function loadSession() {
 function clearSession() { sessionStorage.removeItem(SS_KEY); }
 
 // ============================================================
-// AUTH
+// AUTH (tanpa halaman login, auto anonymous)
 // ============================================================
-async function loginGoogle() {
-  const btn = document.getElementById("btn-google");
-  btn.disabled = true;
-  btn.innerHTML = `<div class="spin b"></div> Mengarahkan ke Google…`;
+async function startAuthListener() {
+  // Cek session yang sudah ada
+  const { data: { session } } = await sb.auth.getSession();
 
-  const { error } = await sb.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: 'https://www.fidzzonex.web.id' // exact, tanpa /
+  if (session?.user) {
+    currentUser = session.user;
+    if (loadSession() && S.qrString && S.trxId) {
+      resetQrPage(); renderDetail(); renderQR();
+      goPage("pg-qr");
+      startCountdown(S.secsLeft);
+      S.expireTimer = setTimeout(() => triggerExpired(), S.secsLeft * 1000);
+      S.checkTimer  = setInterval(() => autoCheck(), 5000);
+      toast("🔄 Sesi pembayaran dipulihkan", "info");
+    } else {
+      goPage("pg-form");
+    }
+  } else {
+    // Tanpa login page, langsung ke form
+    goPage("pg-form");
+  }
+
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN' && session?.user) {
+      currentUser = session.user;
+    }
+    if (event === 'SIGNED_OUT') {
+      currentUser = null;
     }
   });
-
-  if (error) {
-    toast("⚠️ " + error.message, "err");
-    btn.disabled = false;
-    btn.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"/> Masuk dengan Google`;
-  }
-}
-
-async function doLogout() {
-  await sb.auth.signOut();
-  currentUser=null; clearSession(); stopTimers(); S.trxId=null;
-  toast("👋 Berhasil keluar","info");
-  goPage("pg-login");
-}
-
-function applyUser(user) {
-  currentUser = user;
-  const name  = user.user_metadata?.full_name || user.email?.split("@")[0] || "User";
-  const email = user.email || "";
-  const photo = user.user_metadata?.avatar_url;
-  document.getElementById("user-name").textContent  = name;
-  document.getElementById("user-email").textContent = email;
-  const av = document.getElementById("user-av");
-  av.innerHTML = photo
-    ? `<img src="${photo}" alt="${name}"/>`
-    : name.charAt(0).toUpperCase();
-}
-
-// ============================================================
-// HISTORY — dari API fr3newera
-// ============================================================
-async function fetchHistory(page=1, filter="all", append=false) {
-  const el = document.getElementById("hist-content");
-  if (!append) {
-    el.innerHTML=`<div class="hist-empty"><svg class="hist-empty-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg><p>Memuat…</p></div>`;
-  }
-  try {
-    const params = new URLSearchParams({ idTransaksi:"", page, limit:10, filter });
-    const res = await fetch(`/api/history?page=${page}&limit=10&filter=${filter}`, { headers: { "X-Requested-With": "XMLHttpRequest" } });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json();
-    histHasMore = json.hasMore || false;
-    const items = json.data || [];
-
-    if (!append && items.length===0) {
-      el.innerHTML=`<div class="hist-empty"><svg class="hist-empty-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg><p>Belum ada transaksi</p></div>`;
-      return;
-    }
-
-    const html = items.map(t => {
-      const badgeCls = {SUCCESS:"hb-success",PENDING:"hb-pending",EXPIRED:"hb-expired",CANCELED:"hb-canceled"}[t.status]||"hb-canceled";
-      const badgeTxt = {SUCCESS:"✓ Berhasil",PENDING:"⏳ Pending",EXPIRED:"⏰ Expired",CANCELED:"✕ Dibatalkan"}[t.status]||t.status;
-      const isOut    = ["TF_OUT","WD","BUY"].includes(t.type);
-      return `<div class="hist-item">
-        <div style="min-width:0;flex:1">
-          <div class="hist-type">${t.type}</div>
-          <div class="hist-id">${t.trxId}</div>
-          <div class="hist-name" style="font-size:12px;color:var(--g700);font-weight:500">${t.item||"—"}</div>
-          <div class="hist-date">${fmtDate(t.date)}</div>
-        </div>
-        <div class="hist-right">
-          <div class="hist-total" style="color:${isOut?"var(--red)":"var(--blue)"}">
-            ${isOut?"-":""}${rp(t.totalTransfer||t.amount)}
-          </div>
-          <div><span class="hist-badge ${badgeCls}">${badgeTxt}</span></div>
-        </div>
-      </div>`;
-    }).join("");
-
-    if (append) {
-      const list = el.querySelector(".hist-list");
-      if (list) list.insertAdjacentHTML("beforeend", html);
-      const lm = el.querySelector(".hist-load-more");
-      if (lm) lm.remove();
-    } else {
-      el.innerHTML = `<div class="hist-list">${html}</div>`;
-    }
-
-    if (histHasMore) {
-      el.insertAdjacentHTML("beforeend",
-        `<button class="hist-load-more mt-8" onclick="loadMore()">Muat lebih banyak…</button>`);
-    }
-  } catch(err) {
-    el.innerHTML=`<div class="hist-empty"><p style="color:var(--red)">⚠️ Gagal memuat: ${err.message}</p></div>`;
-  }
-}
-
-function setFilter(f, el) {
-  histFilter=f; histPage=1;
-  document.querySelectorAll(".hist-filter button").forEach(b=>b.classList.remove("on"));
-  el.classList.add("on");
-  fetchHistory(1, f, false);
-}
-
-function loadMore() {
-  histPage++;
-  fetchHistory(histPage, histFilter, true);
-}
-
-function openHistory() {
-  histPage=1; histFilter="all";
-  document.querySelectorAll(".hist-filter button").forEach((b,i)=>b.classList.toggle("on",i===0));
-  goPage("pg-history");
-  fetchHistory(1,"all",false);
 }
 
 // ============================================================
@@ -727,7 +476,7 @@ function goPage(id) {
 // ============================================================
 // FORMAT
 // ============================================================
-function rp(n){ return "Rp\u00A0"+Number(n).toLocaleString("id-ID"); }
+function rp(n){ return "Rp "+Number(n).toLocaleString("id-ID"); }
 function fmtDate(d){
   if(!d)return"—";
   try{return new Date(d).toLocaleString("id-ID",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});}
@@ -850,7 +599,7 @@ async function confirmCancel(){
   document.getElementById("inp-nominal").value="";
   document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));
   toast("✅ Transaksi berhasil dibatalkan","ok");
-  goPage("pg-landing");
+  goPage("pg-form");
 }
 
 // ============================================================
@@ -872,7 +621,6 @@ function triggerExpired(){
 // GENERATE QRIS
 // ============================================================
 async function doGenerate(){
-  if(!currentUser){toast("⚠️ Silakan login terlebih dahulu","err");return;}
   const nominal=Number(document.getElementById("inp-nominal").value);
   if(!nominal||nominal<1000)return toast("⚠️ Minimal nominal adalah Rp 1.000","err");
 
@@ -978,58 +726,15 @@ function onSuccess(){
   goPage("pg-success");
 }
 
-
-
-// Auth listener — dipanggil setelah Supabase siap
-async function startAuthListener() {
-  // 1. Kalo ada ?code= langsung tuker paksa
-  const hasCode = window.location.search.includes('code=');
-  if (hasCode) {
-    const { error } = await sb.auth.exchangeCodeForSession(window.location.href);
-    // Bersihin URL
-    window.history.replaceState({}, document.title, window.location.pathname);
-    if (error) {
-      console.error('Exchange error:', error);
-      toast("⚠️ Login gagal: " + error.message, "err");
-      goPage("pg-login");
-      return;
-    }
-  }
-
-  // 2. Cek session setelah tuker code
-  const { data: { session } } = await sb.auth.getSession();
-  
-  if (session?.user) {
-    applyUser(session.user);
-    if (loadSession() && S.qrString && S.trxId) {
-      resetQrPage(); renderDetail(); renderQR();
-      goPage("pg-qr");
-      startCountdown(S.secsLeft);
-      S.expireTimer = setTimeout(() => triggerExpired(), S.secsLeft * 1000);
-      S.checkTimer  = setInterval(() => autoCheck(), 5000);
-      toast("🔄 Sesi pembayaran dipulihkan", "info");
-    } else {
-      goPage("pg-landing");
-    }
-  } else {
-    goPage("pg-login");
-  }
-
-  // 3. Dengerin event selanjutnya
-  sb.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_IN' && session?.user) {
-      applyUser(session.user);
-      goPage("pg-landing");
-    }
-    if (event === 'SIGNED_OUT') {
-      currentUser = null;
-      goPage("pg-login");
-    }
-  });
+function doNewTrx() {
+  S.trxId=null; S.done=false; clearSession(); stopTimers();
+  document.getElementById("inp-nominal").value="";
+  document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));
+  goPage("pg-form");
 }
 
 window.addEventListener("DOMContentLoaded", () => {
-  initSupabase(); // fetch /api/config dulu, lalu startAuthListener() dipanggil di dalamnya
+  initSupabase();
 });
 </script>
 </body>
