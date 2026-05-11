@@ -42,28 +42,46 @@ function strictGuard(req, res, next) {
   const origin = req.headers["origin"] || "";
   const referer = req.headers["referer"] || "";
   const secSite = req.headers["sec-fetch-site"] || "";
+  const secMode = req.headers["sec-fetch-mode"] || "";
   const ua = (req.headers["user-agent"] || "").toLowerCase();
+  const method = req.method;
 
-  if (["curl", "wget", "python", "httpie", "postman", "insomnia"].some(b => ua.includes(b))) {
-    return res.status(403).json({ status: 403, message: "Forbidden" });
+  // 1. Blokir User-Agent curl dkk
+  if (["curl", "wget", "python", "httpie", "postman", "insomnia", "axios", "go-http"].some(b => ua.includes(b))) {
+    return res.status(403).json({ status: 403, message: "Forbidden: Client not allowed" });
   }
 
-  if (secSite && secSite !== "same-origin" && secSite !== "same-site") {
-    return res.status(403).json({ status: 403, message: "Forbidden" });
+  // 2. Cuma allow method GET, POST, DELETE, OPTIONS
+  const allowedMethods = ["GET", "POST", "DELETE", "OPTIONS"];
+  if (!allowedMethods.includes(method)) {
+    return res.status(405).json({ status: 405, message: "Method Not Allowed" });
   }
 
-  const isAllowed = origin.startsWith(ALLOWED_ORIGIN) || referer.startsWith(ALLOWED_ORIGIN);
-  if (!isAllowed) {
-    return res.status(403).json({ status: 403, message: "Forbidden" });
+  // 3. WAJIB ada Referer dari domain lu
+  if (!referer || !referer.startsWith(ALLOWED_ORIGIN)) {
+    return res.status(403).json({ status: 403, message: "Forbidden: Referer required" });
+  }
+
+  // 4. Wajib ada sec-fetch-* dari browser
+  if (!secSite || !secMode) {
+    return res.status(403).json({ status: 403, message: "Forbidden: Missing browser headers" });
+  }
+  if (secSite !== "same-origin" && secSite !== "same-site") {
+    return res.status(403).json({ status: 403, message: "Forbidden: Cross-site" });
+  }
+
+  // 5. Origin harus sama, kecuali GET bisa null origin
+  if (method !== "GET" && origin && !origin.startsWith(ALLOWED_ORIGIN)) {
+    return res.status(403).json({ status: 403, message: "Forbidden: Invalid origin" });
   }
 
   res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
   res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   res.setHeader("Vary", "Origin");
   res.setHeader("Cache-Control", "no-store");
   next();
 }
-
 app.get("/api/config", (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
   res.setHeader("Cache-Control", "public, max-age=300");
