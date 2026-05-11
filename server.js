@@ -9,100 +9,39 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
 // ============================================================
-// ENVIRONMENT
+// ENV
 // ============================================================
-const FR3_KEY        = process.env.FR3_KEY        || "";
-const SUPABASE_URL   = process.env.SUPABASE_URL   || "";
-const SUPABASE_KEY   = process.env.SUPABASE_ANON_KEY || "";
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "https://www.fidzz-codex.my.id";
-const PORT           = process.env.PORT || 3000;
-
-if (!FR3_KEY || !SUPABASE_URL || !SUPABASE_KEY) {
-  console.error("❌  Missing required env vars. Check .env file.");
-  process.exit(1);
-}
+const FR3_KEY        = process.env.FR3_KEY            || "";
+const SUPABASE_URL   = process.env.SUPABASE_URL       || "";
+const SUPABASE_KEY   = process.env.SUPABASE_ANON_KEY  || "";
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN     || "https://www.fidzzonex.web.id";
 
 // ============================================================
-// SECURITY HEADERS (helmet)
+// MIDDLEWARE DASAR
 // ============================================================
-app.use(
-  helmet({
-    contentSecurityPolicy: false, // diatur manual di bawah
-  })
-);
-
-// ============================================================
-// BODY PARSER
-// ============================================================
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: "16kb" }));
 
 // ============================================================
-// SERVE STATIC FILES (index.html, aset, dll)
-// ============================================================
-app.use(
-  express.static(__dirname, {
-    index: "index.html",
-    etag: true,
-    maxAge: "1h",
-  })
-);
-
-// ============================================================
-// RATE LIMITER — per IP
+// RATE LIMITER
 // ============================================================
 const apiLimiter = rateLimit({
-  windowMs: 60 * 1000,   // 1 menit
-  max: 30,               // maks 30 request/menit per IP
+  windowMs: 60 * 1000,
+  max: 30,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { status: 429, message: "Terlalu banyak request. Coba lagi 1 menit." },
+  message: { status: 429, message: "Terlalu banyak request. Tunggu 1 menit." },
 });
 
 const topupLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 5,                // maks 5 topup/menit per IP (lebih ketat)
+  max: 5,
   message: { status: 429, message: "Batas topup tercapai. Tunggu sebentar." },
 });
 
 // ============================================================
-// MIDDLEWARE KEAMANAN API
-// — Blokir curl / non-browser / akses dari origin lain
+// PREFLIGHT OPTIONS
 // ============================================================
-function guardAPI(req, res, next) {
-  // 1. Cek Origin — harus dari domain sendiri (browser kirim ini otomatis)
-  const origin  = req.headers["origin"]  || "";
-  const referer = req.headers["referer"] || "";
-
-  const originOk  = origin.startsWith(ALLOWED_ORIGIN);
-  const refererOk = referer.startsWith(ALLOWED_ORIGIN);
-
-  // Kalau ada Origin header tapi bukan domain kita → tolak
-  if (origin && !originOk) {
-    return res.status(403).json({ status: 403, message: "Forbidden: origin tidak diizinkan." });
-  }
-
-  // 2. Cek X-Requested-With — wajib dikirim dari fetch() di index.html
-  if (req.headers["x-requested-with"] !== "XMLHttpRequest") {
-    return res.status(403).json({ status: 403, message: "Forbidden: akses langsung tidak diizinkan." });
-  }
-
-  // 3. Blokir User-Agent curl/wget/python-requests/dll
-  const ua = (req.headers["user-agent"] || "").toLowerCase();
-  const blockedUA = ["curl", "wget", "python-requests", "httpie", "insomnia", "postman"];
-  if (blockedUA.some(b => ua.includes(b))) {
-    return res.status(403).json({ status: 403, message: "Forbidden." });
-  }
-
-  // 4. Tambah CORS header — hanya izinkan ALLOWED_ORIGIN
-  res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Requested-With");
-  res.setHeader("Cache-Control", "no-store");
-
-  next();
-}
-
-// Handle preflight OPTIONS untuk semua route /api/*
 app.options("/api/*", (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -110,36 +49,61 @@ app.options("/api/*", (req, res) => {
   res.status(204).end();
 });
 
-// Terapkan guard + rate limiter ke semua /api/*
+// ============================================================
+// GUARD MIDDLEWARE — blokir curl/wget/akses langsung
+// ============================================================
+function guardAPI(req, res, next) {
+  const origin = req.headers["origin"] || "";
+
+  // Tolak jika ada Origin tapi bukan dari domain kita
+  if (origin && !origin.startsWith(ALLOWED_ORIGIN)) {
+    return res.status(403).json({ status: 403, message: "Forbidden: origin tidak diizinkan." });
+  }
+
+  // Wajib ada header X-Requested-With (browser kirim, curl tidak)
+  if (req.headers["x-requested-with"] !== "XMLHttpRequest") {
+    return res.status(403).json({ status: 403, message: "Forbidden: akses langsung tidak diizinkan." });
+  }
+
+  // Blokir tool umum
+  const ua = (req.headers["user-agent"] || "").toLowerCase();
+  if (["curl", "wget", "python-requests", "httpie", "insomnia"].some(b => ua.includes(b))) {
+    return res.status(403).json({ status: 403, message: "Forbidden." });
+  }
+
+  res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Requested-With");
+  res.setHeader("Cache-Control", "no-store");
+  next();
+}
+
 app.use("/api", apiLimiter, guardAPI);
 
 // ============================================================
-// ROUTE: GET /api/config
-// Kirim Supabase URL + key ke frontend (aman: hanya dari browser kita)
+// ROUTES API
 // ============================================================
+
+// GET /api/config — kirim Supabase config ke frontend
 app.get("/api/config", (req, res) => {
-  res.json({
-    supabaseUrl: SUPABASE_URL,
-    supabaseKey: SUPABASE_KEY,
-  });
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    return res.status(500).json({ status: 500, message: "Konfigurasi server belum lengkap." });
+  }
+  res.json({ supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_KEY });
 });
 
-// ============================================================
-// ROUTE: POST /api/topup
-// ============================================================
+// POST /api/topup
 app.post("/api/topup", topupLimiter, async (req, res) => {
   try {
     const { nominal } = req.body;
     if (!nominal || isNaN(nominal) || Number(nominal) < 1000) {
       return res.status(400).json({ status: 400, message: "Nominal tidak valid (min Rp 1.000)" });
     }
-
     const upstream = await fetch("https://fr3newera.com/api/v1/topup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ apikey: FR3_KEY, nominal: Number(nominal) }),
     });
-
     const data = await upstream.json();
     return res.status(200).json(data);
   } catch (err) {
@@ -148,20 +112,16 @@ app.post("/api/topup", topupLimiter, async (req, res) => {
   }
 });
 
-// ============================================================
-// ROUTE: GET /api/check-status
-// ============================================================
+// GET /api/check-status
 app.get("/api/check-status", async (req, res) => {
   try {
     const { idTransaksi } = req.query;
     if (!idTransaksi) {
       return res.status(400).json({ status: 400, message: "idTransaksi wajib diisi" });
     }
-
     const upstream = await fetch(
       `https://fr3newera.com/api/v1/check-status?idTransaksi=${encodeURIComponent(idTransaksi)}&apikey=${FR3_KEY}`
     );
-
     const data = await upstream.json();
     return res.status(200).json(data);
   } catch (err) {
@@ -170,22 +130,18 @@ app.get("/api/check-status", async (req, res) => {
   }
 });
 
-// ============================================================
-// ROUTE: POST /api/cancel
-// ============================================================
+// POST /api/cancel
 app.post("/api/cancel", async (req, res) => {
   try {
     const { idTransaksi } = req.body;
     if (!idTransaksi) {
       return res.status(400).json({ status: 400, message: "idTransaksi wajib diisi" });
     }
-
     const upstream = await fetch("https://fr3newera.com/api/v1/topup/cancel", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ apikey: FR3_KEY, idTransaksi }),
     });
-
     const data = await upstream.json();
     return res.status(200).json(data);
   } catch (err) {
@@ -194,14 +150,13 @@ app.post("/api/cancel", async (req, res) => {
   }
 });
 
-// ============================================================
-// ROUTE: GET /api/history
-// ============================================================
+// GET /api/history
 app.get("/api/history", async (req, res) => {
   try {
     const { page = 1, limit = 10, filter = "all" } = req.query;
-    const url = `https://fr3newera.com/api/v1/history?apikey=${FR3_KEY}&page=${page}&limit=${limit}&filter=${filter}`;
-    const upstream = await fetch(url);
+    const upstream = await fetch(
+      `https://fr3newera.com/api/v1/history?apikey=${FR3_KEY}&page=${page}&limit=${limit}&filter=${filter}`
+    );
     const data = await upstream.json();
     return res.status(200).json(data);
   } catch (err) {
@@ -211,15 +166,26 @@ app.get("/api/history", async (req, res) => {
 });
 
 // ============================================================
-// FALLBACK — semua route lain → index.html (SPA)
+// STATIC FILES — index.html
 // ============================================================
+app.use(express.static(__dirname));
+
+// Fallback SPA
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
 // ============================================================
-// START
+// EXPORT — Vercel butuh export default, bukan app.listen()
+// Tapi kalau dijalankan lokal (node server.js), tetap listen
 // ============================================================
-app.listen(PORT, () => {
-  console.log(`✅  Server running at http://localhost:${PORT}`);
-});
+const isVercel = !!process.env.VERCEL;
+
+if (!isVercel) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`✅  Server running at http://localhost:${PORT}`);
+  });
+}
+
+export default app;
