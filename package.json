@@ -26,11 +26,7 @@
     "express": "^4.19.2",
     "express-rate-limit": "^7.3.1",
     "helmet": "^7.1.0",
-<<<<<<< HEAD
-    "ws": "^8.18.0"
-=======
     "ws": "^8.20.1"
->>>>>>> ee6c1e9 (add ws dependency for supabase)
   },
   "engines": {
     "node": "20.x"
