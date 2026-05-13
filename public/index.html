@@ -890,7 +890,7 @@ async function doLogin(){
       S.expireTimer=setTimeout(()=>triggerExpired(),S.secsLeft*1000);
       S.checkTimer=setInterval(()=>autoCheck(),5000);
       toast("🔄 Sesi pembayaran dipulihkan","info");
-    }else{goPage("pg-landing");}
+    }else{goPage("pg-form");}
   }catch(err){
     showAuthErr("Terjadi kesalahan. Coba lagi.");
     btn.disabled=false;
@@ -1131,7 +1131,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         S.checkTimer=setInterval(()=>autoCheck(),5000);
         toast("🔄 Sesi pembayaran dipulihkan","info");
       } else {
-        goPage("pg-landing");
+        goPage("pg-form");
       }
       return;
     }
