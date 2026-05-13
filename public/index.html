@@ -1119,7 +1119,6 @@ window.addEventListener("DOMContentLoaded", async () => {
   }
 
   try {
-    // Verifikasi token ke server
     const res  = await fetch(API.auth.me, { headers: { ...authHeader() } });
     const json = await res.json();
 
@@ -1137,7 +1136,6 @@ window.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    // Token expired → coba refresh
     const rt = localStorage.getItem(LS_REFRESH);
     if (rt) {
       const ref = await fetch(API.auth.refresh,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({refresh_token:rt})});
@@ -1151,7 +1149,6 @@ window.addEventListener("DOMContentLoaded", async () => {
       }
     }
 
-    // Semua gagal → ke intro
     removeToken();
     goPage("pg-intro");
 
