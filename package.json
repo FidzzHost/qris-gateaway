@@ -29,7 +29,7 @@
     "ws": "^8.20.1"
   },
   "engines": {
-    "node": "20.x"
+    "node": "18.x"
   }
 >>>>>>> f9ef537 (add ws dependency for supabase)
 }
