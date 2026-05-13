@@ -1,25 +1,36 @@
+
 import "dotenv/config";
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
+import { createClient } from "@supabase/supabase-js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
-const FR3_KEY = process.env.FR3_KEY || "";
-const SUPABASE_URL = process.env.SUPABASE_URL || "";
-const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || "";
+// ── ENV ──
+const FR3_KEY        = process.env.FR3_KEY || "";
+const SUPABASE_URL   = process.env.SUPABASE_URL || "";
+const SUPABASE_KEY   = process.env.SUPABASE_ANON_KEY || "";  // hanya ada di server
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "https://www.fidzzonex.web.id";
+const ALLOWED_HOST   = (() => { try { return new URL(ALLOWED_ORIGIN).hostname; } catch(_) { return "fidzzonex.web.id"; } })();
+
+// ── Supabase client (server-side only, key tidak pernah ke browser) ──
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { autoRefreshToken: false, persistSession: false }
+});
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: "16kb" }));
 
-const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 30 });
-const topupLimiter = rateLimit({ windowMs: 60 * 1000, max: 5 });
-const configLimiter = rateLimit({ windowMs: 60 * 1000, max: 20 });
+// ── RATE LIMITERS ──
+const apiLimiter   = rateLimit({ windowMs: 60_000, max: 60 });
+const topupLimiter = rateLimit({ windowMs: 60_000, max: 5  });
+const authLimiter  = rateLimit({ windowMs: 60_000, max: 10 });
 
+// ── CORS preflight ──
 app.options("/api/*", (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -28,93 +39,65 @@ app.options("/api/*", (req, res) => {
   res.status(204).end();
 });
 
-// Guard santai buat yang butuh fungsi
-function basicGuard(req, res, next) {
-  const ua = (req.headers["user-agent"] || "").toLowerCase();
-  const referer = req.headers["referer"] || "";
-  
-  // Cuma blokir curl/wget doang
-  if (ua.includes("curl") || ua.includes("wget") || ua.includes("python")) {
-    return res.status(403).json({ status: 403, message: "Forbidden" });
+// ── GUARD: blokir bot & request dari luar domain ──
+function guard(req, res, next) {
+  const ua     = (req.headers["user-agent"] || "").toLowerCase();
+  const origin = req.headers["origin"]  || "";
+  const ref    = req.headers["referer"] || "";
+
+  // Blokir CLI/bot
+  if (["curl","wget","python","httpie","scrapy","go-http","okhttp"].some(b => ua.includes(b))) {
+    return res.status(403).json({ status:403, message:"Forbidden" });
   }
-  
-  // Referer harus dari domain lu
-  if (!referer.includes("fidzzonex.web.id")) {
-    return res.status(403).json({ status: 403, message: "Bad referer" });
+  // Origin ada tapi bukan domain kita → blokir
+  if (origin && !origin.includes(ALLOWED_HOST)) {
+    return res.status(403).json({ status:403, message:"Origin tidak diizinkan" });
   }
-  
+  // Referer ada tapi bukan domain kita → blokir
+  if (!origin && ref && !ref.includes(ALLOWED_HOST)) {
+    return res.status(403).json({ status:403, message:"Referer tidak valid" });
+  }
+
   res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
+  res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Cache-Control", "no-store");
   next();
 }
 
-// /api/config pake guard santai + rate limit doang
-app.get("/api/config", configLimiter, basicGuard, (req, res) => {
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
-    return res.status(500).json({ status: 500, message: "Konfigurasi server belum lengkap." });
-  }
-  res.json({ supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_KEY });
-});
+// ── Helper: ambil user dari JWT yang dikirim frontend ──
+// Frontend kirim: Authorization: Bearer <access_token>
+// Server verifikasi token ke Supabase, tidak perlu expose key
+async function getUser(req) {
+  const auth  = req.headers["authorization"] || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  if (!token) return null;
+  const { data, error } = await sb.auth.getUser(token);
+  if (error || !data?.user) return null;
+  return data.user;
+}
 
-// Yang lain baru pake limiter biasa
 app.use("/api", apiLimiter);
 
-app.post("/api/topup", basicGuard, topupLimiter, async (req, res) => {
+// ============================================================
+// AUTH ENDPOINTS — semua operasi auth di server, key tidak ke browser
+// ============================================================
+
+// Register
+app.post("/api/auth/register", guard, authLimiter, async (req, res) => {
   try {
-    const { nominal } = req.body;
-    if (!nominal || isNaN(nominal) || Number(nominal) < 1000) {
-      return res.status(400).json({ status: 400, message: "Nominal tidak valid (min Rp 1.000)" });
+    const { email, password, name } = req.body;
+    if (!email || !password || !name) {
+      return res.status(400).json({ status:400, message:"Email, password, dan nama wajib diisi" });
     }
-    const upstream = await fetch("https://fr3newera.com/api/v1/topup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ apikey: FR3_KEY, nominal: Number(nominal) }),
+    if (password.length < 6) {
+      return res.status(400).json({ status:400, message:"Password minimal 6 karakter" });
+    }
+
+    const { data, error } = await sb.auth.signUp({
+      email, password,
+      options: { data: { full_name: name } }
     });
-    const data = await upstream.json();
-    return res.status(200).json(data);
-  } catch (err) {
-    return res.status(500).json({ status: 500, message: "Server error: " + err.message });
-  }
-});
 
-app.get("/api/check-status", basicGuard, async (req, res) => {
-  try {
-    const { idTransaksi } = req.query;
-    if (!idTransaksi) return res.status(400).json({ status: 400, message: "idTransaksi wajib diisi" });
-    const upstream = await fetch(`https://fr3newera.com/api/v1/check-status?idTransaksi=${encodeURIComponent(idTransaksi)}&apikey=${FR3_KEY}`);
-    const data = await upstream.json();
-    return res.status(200).json(data);
-  } catch (err) {
-    return res.status(500).json({ status: 500, message: "Server error: " + err.message });
-  }
-});
-
-app.post("/api/cancel", basicGuard, async (req, res) => {
-  try {
-    const { idTransaksi } = req.body;
-    if (!idTransaksi) return res.status(400).json({ status: 400, message: "idTransaksi wajib diisi" });
-    const upstream = await fetch("https://fr3newera.com/api/v1/topup/cancel", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ apikey: FR3_KEY, idTransaksi }),
-    });
-    const data = await upstream.json();
-    return res.status(200).json(data);
-  } catch (err) {
-    return res.status(500).json({ status: 500, message: "Server error: " + err.message });
-  }
-});
-
-app.all("/api/*", (req, res) => {
-  res.status(404).json({ status: 404, message: "Not Found" });
-});
-
-app.use(express.static(path.join(__dirname, "public")));
-app.get("*", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
-
-const isVercel = !!process.env.VERCEL;
-if (!isVercel) {
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
-}
-export default app;
+    if (error) {
+      let msg = error.message;
+      if (msg.includes("already registered")) msg = "Email ini sudah terdaftar.";
