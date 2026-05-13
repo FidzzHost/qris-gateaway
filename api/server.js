@@ -254,25 +254,13 @@ app.post("/api/cancel", guard, async (req, res) => {
   }
 });
 
-const configDiv = document.createElement('div');
-configDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#111;color:#0f0;padding:10px;font-size:12px;z-index:9999;white-space:pre-wrap;';
-document.body.appendChild(configDiv);
-
-fetch('/api/config')
-  .then(res => {
-    configDiv.innerHTML += `Status: ${res.status}\n`;
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.json();
-  })
-  .then(data => {
-    configDiv.innerHTML += `Success: ${JSON.stringify(data)}\n`;
-    // lanjutin kode login lu disini
-  })
-  .catch(err => {
-    configDiv.style.background = '#900';
-    configDiv.style.color = '#fff';
-    configDiv.innerHTML += `ERROR: ${err.message}\n${err.stack}`;
+app.get("/api/config", (req, res) => {
+  res.json({
+    status: 200,
+    supabaseUrl: SUPABASE_URL,
+    supabaseAnonKey: SUPABASE_KEY
   });
+});
 
 // Export untuk Vercel
 export default app;
