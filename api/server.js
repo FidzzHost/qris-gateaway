@@ -247,5 +247,14 @@ app.get("/api/health", (req, res) => {
   res.json({ status:200, message:"OK" });
 });
 
+// Health check root
+app.get('/', (req, res) => {
+  res.json({ 
+    status: 200, 
+    message: 'Qris Gateway API is running 🚀',
+    endpoints: ['/api/health', '/api/auth/login', '/api/auth/register', '/api/topup']
+  });
+});
+
 // Export untuk Vercel
 export default app;
