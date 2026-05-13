@@ -926,7 +926,7 @@ async function doRegister(){
       localStorage.setItem(LS_REFRESH,json.session.refresh_token);
       applyUser(json.user);
       toast("✅ Akun berhasil dibuat!","ok");
-      goPage("pg-landing");
+      goPage("pg-form");
     }
   }catch(err){showAuthErr("Terjadi kesalahan. Coba lagi.");}
   finally{
@@ -1035,7 +1035,8 @@ async function confirmCancel(){
   try{await fetch(API.cancel,{method:"POST",headers:{"Content-Type":"application/json",...authHeader()},body:JSON.stringify({idTransaksi:id})});}catch(_){}
   S.trxId=null;S.done=false;clearSession();
   resetQrPage();document.getElementById("inp-nominal").value="";document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));
-  toast("✅ Transaksi berhasil dibatalkan","ok");goPage("pg-landing");
+  toast("✅ Transaksi berhasil dibatalkan","ok");
+  goPage("pg-form");
 }
 
 // EXPIRED
@@ -1146,7 +1147,7 @@ window.addEventListener("DOMContentLoaded", async () => {
         localStorage.setItem(LS_REFRESH, refJson.session.refresh_token);
         const res2  = await fetch(API.auth.me,{headers:{"Authorization":`Bearer ${refJson.session.access_token}`}});
         const json2 = await res2.json();
-        if (json2.status === 200) { applyUser(json2.user); goPage("pg-landing"); return; }
+        if (json2.status === 200) { applyUser(json2.user); goPage("pg-form"); return; }
       }
     }
 
