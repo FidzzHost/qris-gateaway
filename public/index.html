@@ -756,407 +756,370 @@ body{font-family:'Inter',sans-serif;font-size:14px;line-height:1.55;color:var(--
   </div>  </div>  <script>  
 // ============================================================  
 // KEY DIAMBIL DARI /api/config — TIDAK hardcode di HTML  
-// ============================================================  
-const API = { topup:"/api/topup", status:"/api/check-status", cancel:"/api/cancel" };  
-let sb = null; // inisialisasi setelah fetch config  
-let currentUser = null;  
-let histFilter = "all", histPage = 1, histHasMore = false;  
-let S = {  
-  trxId:null,amount:0,fee:0,total:0,date:null,qrString:null,  
-  checkTimer:null,expireTimer:null,countdown:null,secsLeft:300,done:false  
-};  
-  
-// ── SESSION STORAGE ──  
-const SS_KEY = "qrispay_trx";  
-function saveSession(){  
-  if(!S.trxId)return;  
-  sessionStorage.setItem(SS_KEY,JSON.stringify({  
-    trxId:S.trxId,amount:S.amount,fee:S.fee,total:S.total,  
-    date:S.date,qrString:S.qrString,secsLeft:S.secsLeft,savedAt:Date.now()  
-  }));  
-}  
-function loadSession(){  
-  try{  
-    const d=JSON.parse(sessionStorage.getItem(SS_KEY)||"null");  
-    if(!d)return false;  
-    const left=d.secsLeft-Math.floor((Date.now()-d.savedAt)/1000);  
-    if(left<=0){sessionStorage.removeItem(SS_KEY);return false;}  
-    S.trxId=d.trxId;S.amount=d.amount;S.fee=d.fee;S.total=d.total;  
-    S.date=d.date;S.qrString=d.qrString;S.secsLeft=left;S.done=false;  
-    return true;  
-  }catch(_){return false;}  
-}  
-function clearSession(){sessionStorage.removeItem(SS_KEY);}  
-  
-// ── AUTH TABS ──  
-function switchTab(tab){  
-  const isLogin = tab==="login";  
-  document.getElementById("tab-login").classList.toggle("on",isLogin);  
-  document.getElementById("tab-reg").classList.toggle("on",!isLogin);  
-  document.getElementById("form-login").classList.toggle("hidden",!isLogin);  
-  document.getElementById("form-reg").classList.toggle("hidden",isLogin);  
-  document.getElementById("verify-box").classList.add("hidden");  
-  document.getElementById("auth-err").classList.add("hidden");  
-}  
-  
-function showAuthErr(msg){  
-  const el=document.getElementById("auth-err");  
-  el.textContent=msg; el.classList.remove("hidden");  
-}  
-  
-function toggleEye(inputId,btn){  
-  const inp=document.getElementById(inputId);  
-  const show=inp.type==="password";  
-  inp.type=show?"text":"password";  
-  btn.innerHTML=show  
-    ?`<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24M1 1l22 22"/></svg>`  
-    :`<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;  
-}  
-  
-// ── AUTH: EMAIL LOGIN ──  
-async function doLogin(){  
-  const email = document.getElementById("li-email").value.trim();  
-  const pass  = document.getElementById("li-pass").value;  
-  if(!email || !pass) return showAuthErr("Email dan password wajib diisi.");
-
-  const btn = document.getElementById("btn-login");  
-  btn.disabled = true;
-  btn.innerHTML = `<div class="spin"></div> Masuk…`;  
-  document.getElementById("auth-err").classList.add("hidden");
-
-  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
-
-  if(error){
-    // Terjemahkan error Supabase ke Bahasa Indonesia
-    let msg = error.message;
-    if(msg.includes("Invalid login credentials")) msg = "Email atau password salah.";
-    else if(msg.includes("Email not confirmed"))  msg = "Email belum dikonfirmasi. Cek inbox kamu dan klik link verifikasi.";
-    else if(msg.includes("Too many requests"))    msg = "Terlalu banyak percobaan. Tunggu beberapa menit.";
-    showAuthErr(msg);
-    btn.disabled = false;
-    btn.innerHTML = `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>Masuk`;
+// ============================================================      } else if(msg.includes("Password should be")) {
+         const API = {
+  topup:  "/api/topup",
+  status: "/api/check-status",
+  cancel: "/api/cancel",
+  auth: {
+    login:    "/api/auth/login",
+    register: "/api/auth/register",
+    logout:   "/api/auth/logout",
+    me:       "/api/auth/me",
+    refresh:  "/api/auth/refresh",
+    google:   "/api/auth/google",
   }
-  // Kalau sukses → onAuthStateChange otomatis handle redirect
+};
+
+// Token management (localStorage)
+const LS_TOKEN    = "qrispay_token";
+const LS_REFRESH  = "qrispay_refresh";
+function getToken()    { return localStorage.getItem(LS_TOKEN); }
+function setToken(t)   { localStorage.setItem(LS_TOKEN, t); }
+function removeToken() { localStorage.removeItem(LS_TOKEN); localStorage.removeItem(LS_REFRESH); }
+function authHeader()  { const t=getToken(); return t?{"Authorization":`Bearer ${t}`}:{}; }
+
+// Session storage (QR persist saat refresh)
+const SS_KEY = "qrispay_trx";
+function saveSession(){
+  if(!S.trxId)return;
+  sessionStorage.setItem(SS_KEY,JSON.stringify({
+    trxId:S.trxId,amount:S.amount,fee:S.fee,total:S.total,
+    date:S.date,qrString:S.qrString,secsLeft:S.secsLeft,savedAt:Date.now()
+  }));
+}
+function loadSession(){
+  try{
+    const d=JSON.parse(sessionStorage.getItem(SS_KEY)||"null");
+    if(!d)return false;
+    const left=d.secsLeft-Math.floor((Date.now()-d.savedAt)/1000);
+    if(left<=0){sessionStorage.removeItem(SS_KEY);return false;}
+    S.trxId=d.trxId;S.amount=d.amount;S.fee=d.fee;S.total=d.total;
+    S.date=d.date;S.qrString=d.qrString;S.secsLeft=left;S.done=false;
+    return true;
+  }catch(_){return false;}
+}
+function clearSession(){sessionStorage.removeItem(SS_KEY);}
+
+// State
+let currentUser=null;
+let histFilter="all",histPage=1,histHasMore=false;
+let S={trxId:null,amount:0,fee:0,total:0,date:null,qrString:null,checkTimer:null,expireTimer:null,countdown:null,secsLeft:300,done:false};
+
+// Auth tabs
+function switchTab(tab){
+  const isLogin=tab==="login";
+  document.getElementById("tab-login").classList.toggle("on",isLogin);
+  document.getElementById("tab-reg").classList.toggle("on",!isLogin);
+  document.getElementById("form-login").classList.toggle("hidden",!isLogin);
+  document.getElementById("form-reg").classList.toggle("hidden",isLogin);
+  document.getElementById("verify-box").classList.add("hidden");
+  document.getElementById("auth-err").classList.add("hidden");
+}
+function showAuthErr(msg){const el=document.getElementById("auth-err");el.textContent=msg;el.classList.remove("hidden");}
+function toggleEye(inputId,btn){
+  const inp=document.getElementById(inputId);
+  const show=inp.type==="password";
+  inp.type=show?"text":"password";
+  btn.innerHTML=show
+    ?`<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24M1 1l22 22"/></svg>`
+    :`<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
 }
 
-// ── AUTH: EMAIL REGISTER ──  
-async function doRegister(){  
-  const name  = document.getElementById("reg-name").value.trim();  
-  const email = document.getElementById("reg-email").value.trim();  
-  const pass  = document.getElementById("reg-pass").value;
-
-  // Validasi
-  if(!name)              return showAuthErr("Nama lengkap wajib diisi.");
-  if(!email)             return showAuthErr("Email wajib diisi.");
-  if(!email.includes("@")) return showAuthErr("Format email tidak valid.");
-  if(!pass)              return showAuthErr("Password wajib diisi.");
-  if(pass.length < 6)    return showAuthErr("Password minimal 6 karakter.");
-
-  const btn = document.getElementById("btn-reg");  
-  btn.disabled = true;
-  btn.innerHTML = `<div class="spin"></div> Mendaftar…`;
+// LOGIN
+async function doLogin(){
+  const email=document.getElementById("li-email").value.trim();
+  const pass=document.getElementById("li-pass").value;
+  if(!email||!pass)return showAuthErr("Email dan password wajib diisi.");
+  const btn=document.getElementById("btn-login");
+  btn.disabled=true;btn.innerHTML=`<div class="spin"></div> Masuk…`;
   document.getElementById("auth-err").classList.add("hidden");
-
-  const { data, error } = await sb.auth.signUp({
-    email,
-    password: pass,
-    options: {
-      data: { full_name: name },
-      emailRedirectTo: window.location.origin
+  try{
+    const res=await fetch(API.auth.login,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password:pass})});
+    const json=await res.json();
+    if(json.status!==200){
+      showAuthErr(json.message||"Login gagal.");
+      btn.disabled=false;
+      btn.innerHTML=`<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>Masuk`;
+      return;
     }
-  });
+    setToken(json.session.access_token);
+    localStorage.setItem(LS_REFRESH,json.session.refresh_token);
+    applyUser(json.user);
+    if(loadSession()&&S.qrString&&S.trxId){
+      resetQrPage();renderDetail();renderQR();goPage("pg-qr");
+      startCountdown(S.secsLeft);
+      S.expireTimer=setTimeout(()=>triggerExpired(),S.secsLeft*1000);
+      S.checkTimer=setInterval(()=>autoCheck(),5000);
+      toast("🔄 Sesi pembayaran dipulihkan","info");
+    }else{goPage("pg-landing");}
+  }catch(err){
+    showAuthErr("Terjadi kesalahan. Coba lagi.");
+    btn.disabled=false;
+    btn.innerHTML=`<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>Masuk`;
+  }
+}
 
-  if(error){
-    let msg = error.message;
-    if(msg.includes("already registered") || msg.includes("User already registered")) {
-      msg = "Email ini sudah terdaftar. Silakan login atau gunakan email lain.";
-    } else if(msg.includes("Password should be")) {
-      msg = "Password terlalu lemah. Gunakan minimal 6 karakter.";
-    } else if(msg.includes("Unable to validate")) {
-      msg = "Format email tidak valid.";
+// REGISTER
+async function doRegister(){
+  const name=document.getElementById("reg-name").value.trim();
+  const email=document.getElementById("reg-email").value.trim();
+  const pass=document.getElementById("reg-pass").value;
+  if(!name)return showAuthErr("Nama lengkap wajib diisi.");
+  if(!email)return showAuthErr("Email wajib diisi.");
+  if(!email.includes("@"))return showAuthErr("Format email tidak valid.");
+  if(!pass)return showAuthErr("Password wajib diisi.");
+  if(pass.length<6)return showAuthErr("Password minimal 6 karakter.");
+  const btn=document.getElementById("btn-reg");
+  btn.disabled=true;btn.innerHTML=`<div class="spin"></div> Mendaftar…`;
+  document.getElementById("auth-err").classList.add("hidden");
+  try{
+    const res=await fetch(API.auth.register,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password:pass,name})});
+    const json=await res.json();
+    if(json.status!==200){showAuthErr(json.message||"Registrasi gagal.");return;}
+    if(json.needVerify){
+      document.getElementById("verify-email").textContent=email;
+      document.getElementById("form-reg").classList.add("hidden");
+      document.getElementById("verify-box").classList.remove("hidden");
+      document.getElementById("tab-reg").classList.remove("on");
+      document.getElementById("tab-login").classList.add("on");
+    }else{
+      setToken(json.session.access_token);
+      localStorage.setItem(LS_REFRESH,json.session.refresh_token);
+      applyUser(json.user);
+      toast("✅ Akun berhasil dibuat!","ok");
+      goPage("pg-landing");
     }
-    showAuthErr(msg);
-    btn.disabled = false;
-    btn.innerHTML = `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8zM19 8v6M22 11h-6"/></svg>Buat Akun`;
+  }catch(err){showAuthErr("Terjadi kesalahan. Coba lagi.");}
+  finally{
+    btn.disabled=false;
+    btn.innerHTML=`<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8zM19 8v6M22 11h-6"/></svg>Buat Akun`;
+  }
+}
+
+// GOOGLE LOGIN
+async function loginGoogle(){
+  const btn=event.currentTarget;
+  btn.disabled=true;btn.innerHTML=`<div class="spin b"></div> Mengarahkan…`;
+  try{
+    const res=await fetch(API.auth.google);
+    const json=await res.json();
+    if(json.url){window.location.href=json.url;}
+    else{toast("⚠️ Gagal mendapatkan URL login","err");btn.disabled=false;btn.innerHTML=`<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"/> Masuk dengan Google`;}
+  }catch(err){
+    toast("⚠️ "+err.message,"err");
+    btn.disabled=false;btn.innerHTML=`<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"/> Masuk dengan Google`;
+  }
+}
+
+// LOGOUT
+async function doLogout(){
+  try{await fetch(API.auth.logout,{method:"POST",headers:{...authHeader()}});}catch(_){}
+  removeToken();currentUser=null;clearSession();stopTimers();S.trxId=null;
+  toast("👋 Berhasil keluar","info");goPage("pg-intro");
+}
+
+// APPLY USER
+function applyUser(user){
+  currentUser=user;
+  const name=user.name||user.email?.split("@")[0]||"User";
+  document.getElementById("user-name").textContent=name;
+  document.getElementById("user-email").textContent=user.email||"";
+  const av=document.getElementById("user-av");
+  av.innerHTML=user.photo?`<img src="${user.photo}" alt="${name}"/>`:name.charAt(0).toUpperCase();
+}
+
+// HISTORY
+async function fetchHistory(page=1,filter="all",append=false){
+  const el=document.getElementById("hist-content");
+  if(!append)el.innerHTML=`<div class="hist-empty"><svg class="hist-empty-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg><p>Memuat…</p></div>`;
+  try{
+    const res=await fetch(`/api/history?page=${page}&limit=10&filter=${filter}`,{headers:{...authHeader()}});
+    if(!res.ok)throw new Error(`HTTP ${res.status}`);
+    const json=await res.json();
+    histHasMore=json.hasMore||false;
+    const items=json.data||[];
+    if(!append&&items.length===0){el.innerHTML=`<div class="hist-empty"><svg class="hist-empty-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg><p>Belum ada transaksi</p></div>`;return;}
+    const html=items.map(t=>{
+      const bc={SUCCESS:"hb-success",PENDING:"hb-pending",EXPIRED:"hb-expired",CANCELED:"hb-canceled"}[t.status]||"hb-canceled";
+      const bt={SUCCESS:"✓ Berhasil",PENDING:"⏳ Pending",EXPIRED:"⏰ Expired",CANCELED:"✕ Dibatalkan"}[t.status]||t.status;
+      const isOut=["TF_OUT","WD","BUY"].includes(t.type);
+      return `<div class="hist-item"><div style="min-width:0;flex:1"><div class="hist-type">${t.type}</div><div class="hist-id">${t.trxId}</div><div style="font-size:12px;color:var(--g700);font-weight:500;margin-bottom:2px">${t.item||"—"}</div><div class="hist-date">${fmtDate(t.date)}</div></div><div class="hist-right"><div class="hist-total" style="color:${isOut?"var(--red)":"var(--blue)"}">${isOut?"-":""}${rp(t.totalTransfer||t.amount)}</div><div><span class="hist-badge ${bc}">${bt}</span></div></div></div>`;
+    }).join("");
+    if(append){const list=el.querySelector(".hist-list");if(list)list.insertAdjacentHTML("beforeend",html);const lm=el.querySelector(".hist-load-more");if(lm)lm.remove();}
+    else{el.innerHTML=`<div class="hist-list">${html}</div>`;}
+    if(histHasMore)el.insertAdjacentHTML("beforeend",`<button class="hist-load-more mt-8" onclick="loadMore()">Muat lebih banyak…</button>`);
+  }catch(err){el.innerHTML=`<div class="hist-empty"><p style="color:var(--red)">⚠️ Gagal memuat: ${err.message}</p></div>`;}
+}
+function setFilter(f,el){histFilter=f;histPage=1;document.querySelectorAll(".hist-filter button").forEach(b=>b.classList.remove("on"));el.classList.add("on");fetchHistory(1,f,false);}
+function loadMore(){histPage++;fetchHistory(histPage,histFilter,true);}
+function openHistory(){histPage=1;histFilter="all";document.querySelectorAll(".hist-filter button").forEach((b,i)=>b.classList.toggle("on",i===0));goPage("pg-history");fetchHistory(1,"all",false);}
+
+// NAVIGASI
+function goPage(id){document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));document.getElementById(id).classList.add("active");window.scrollTo({top:0,behavior:"smooth"});}
+
+// FORMAT
+function rp(n){return "Rp\u00A0"+Number(n).toLocaleString("id-ID");}
+function fmtDate(d){if(!d)return"—";try{return new Date(d).toLocaleString("id-ID",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});}catch(_){return String(d);}}
+
+// CHIPS
+function pickChip(val,el){document.getElementById("inp-nominal").value=val;document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));el.classList.add("on");}
+function syncChips(){document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));}
+
+// TOAST
+let _tt=null;
+function toast(msg,type="info"){const box=document.getElementById("toast-box");clearTimeout(_tt);box.innerHTML=`<div class="toast t-${type}">${msg}</div>`;_tt=setTimeout(()=>{const el=box.querySelector(".toast");if(el){el.classList.add("out");setTimeout(()=>box.innerHTML="",230);}},3200);}
+
+// NOTIF/BADGE/TIMER
+function showNotif(msg,type="pending"){document.getElementById("notif-area").innerHTML=`<div class="notif n-${type}"><span class="notif-icon">${type==="pending"?"⏳":"⚠️"}</span><div>${msg}</div></div>`;}
+function clearNotif(){document.getElementById("notif-area").innerHTML="";}
+function setBadge(s){const el=document.getElementById("badge");el.className="badge";if(s==="SUCCESS"){el.classList.add("b-success");el.innerHTML="✓&nbsp; Pembayaran Berhasil";}else if(s==="EXPIRED"){el.classList.add("b-expired");el.innerHTML="⏰&nbsp; Kedaluwarsa";}else{el.classList.add("b-pending");el.innerHTML=`<span class="dot"></span><span>Menunggu Pembayaran</span>`;}}
+function startCountdown(secs){S.secsLeft=secs||300;renderTimer();S.countdown=setInterval(()=>{S.secsLeft--;saveSession();renderTimer();if(S.secsLeft<=0)clearInterval(S.countdown);},1000);}
+function renderTimer(){const el=document.getElementById("timer-val");if(!el)return;el.textContent=`${String(Math.floor(S.secsLeft/60)).padStart(2,"0")}:${String(S.secsLeft%60).padStart(2,"0")}`;el.classList.toggle("red",S.secsLeft<60);}
+function stopTimers(){clearInterval(S.checkTimer);clearTimeout(S.expireTimer);clearInterval(S.countdown);S.checkTimer=S.expireTimer=S.countdown=null;}
+
+// RENDER QR
+function renderQR(){document.getElementById("qrcode").innerHTML="";const c=document.createElement("canvas");document.getElementById("qrcode").appendChild(c);new QRious({element:c,value:S.qrString,size:196,foreground:"#1e3a8a",background:"#ffffff",level:"H"});document.getElementById("qr-loading").classList.add("hidden");document.getElementById("qr-ready").classList.remove("hidden");}
+function renderDetail(){document.getElementById("inf-id").textContent=S.trxId;document.getElementById("inf-date").textContent=fmtDate(S.date);document.getElementById("inf-nominal").textContent=rp(S.amount);document.getElementById("inf-fee").textContent=S.fee>0?rp(S.fee):"Gratis";document.getElementById("inf-total").textContent=rp(S.total);}
+
+// RESET QR PAGE
+function resetQrPage(){document.getElementById("qr-loading").classList.remove("hidden");document.getElementById("qr-ready").classList.add("hidden");document.getElementById("qrcode").innerHTML="";clearNotif();setBadge("PENDING");document.getElementById("timer-row").classList.remove("hidden");document.getElementById("expired-banner").classList.add("hidden");document.getElementById("cek-box").classList.remove("hidden");document.getElementById("ew-section").classList.remove("hidden");const bc=document.getElementById("btn-cancel");bc.classList.remove("hidden");bc.disabled=false;bc.innerHTML=`<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Batalkan Transaksi`;document.getElementById("btn-new-trx").classList.add("hidden");}
+
+// MODAL BATAL
+function openModal(){if(!S.trxId||S.done)return;document.getElementById("modal-bg").classList.remove("hidden");}
+function closeModal(){const bg=document.getElementById("modal-bg");bg.classList.add("closing");setTimeout(()=>{bg.classList.add("hidden");bg.classList.remove("closing");},180);}
+function modalBgClick(e){if(e.target===document.getElementById("modal-bg"))closeModal();}
+async function confirmCancel(){
+  closeModal();const id=S.trxId;if(!id)return;
+  stopTimers();S.done=true;
+  const btn=document.getElementById("btn-cancel");
+  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spin r"></div> Membatalkan…`;}
+  try{await fetch(API.cancel,{method:"POST",headers:{"Content-Type":"application/json",...authHeader()},body:JSON.stringify({idTransaksi:id})});}catch(_){}
+  S.trxId=null;S.done=false;clearSession();
+  resetQrPage();document.getElementById("inp-nominal").value="";document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));
+  toast("✅ Transaksi berhasil dibatalkan","ok");goPage("pg-landing");
+}
+
+// EXPIRED
+function triggerExpired(){if(S.done)return;S.done=true;clearInterval(S.checkTimer);clearInterval(S.countdown);clearSession();setBadge("EXPIRED");document.getElementById("timer-row").classList.add("hidden");document.getElementById("expired-banner").classList.remove("hidden");document.getElementById("cek-box").classList.add("hidden");document.getElementById("ew-section").classList.add("hidden");document.getElementById("btn-cancel").classList.add("hidden");document.getElementById("btn-new-trx").classList.remove("hidden");toast("⏰ Transaksi kedaluwarsa","err");}
+
+// EWALLET
+function openEwallet(app){
+  if(!S.qrString)return toast("⚠️ QR belum siap","err");
+  const qr=encodeURIComponent(S.qrString);
+  const links={dana:`https://link.dana.id/qr?qrCode=${qr}`,gopay:`https://link.gojek.com/gopay/qrcode?qr=${qr}`,ovo:`ovo://scan?qrCode=${qr}`,shopee:`shopeeid://payment/qr?qrCode=${qr}`};
+  const fallback={dana:"https://play.google.com/store/apps/details?id=id.dana",gopay:"https://play.google.com/store/apps/details?id=com.gojek.app",ovo:"https://play.google.com/store/apps/details?id=ovo.id",shopee:"https://play.google.com/store/apps/details?id=com.shopee.id"};
+  const url=links[app];if(!url)return;
+  const start=Date.now();window.location.href=url;
+  setTimeout(()=>{if(Date.now()-start<2500){if(confirm("App tidak terdeteksi. Buka Play Store?"))window.open(fallback[app],"_blank");}},2000);
+}
+
+// GENERATE QRIS
+async function doGenerate(){
+  if(!currentUser){toast("⚠️ Silakan login terlebih dahulu","err");return;}
+  const nominal=Number(document.getElementById("inp-nominal").value);
+  if(!nominal||nominal<1000)return toast("⚠️ Minimal nominal adalah Rp 1.000","err");
+  const btn=document.getElementById("btn-generate");btn.disabled=true;btn.innerHTML=`<div class="spin"></div> Memproses…`;
+  try{
+    const res=await fetch(API.topup,{method:"POST",headers:{"Content-Type":"application/json",...authHeader()},body:JSON.stringify({nominal})});
+    if(!res.ok)throw new Error(`HTTP ${res.status}`);
+    const json=await res.json();
+    if(json.status!==200)throw new Error(json.message||"Gagal membuat transaksi");
+    const d=json.data;
+    S.trxId=d.trxId||d.id;S.amount=d.amount||d.nominal||nominal;S.fee=d.fee||d.adminFee||d.uniqueCode||0;
+    S.total=d.totalTransfer||d.total||(S.amount+S.fee);S.date=d.createdAt||d.date||new Date().toISOString();
+    S.qrString=d.qr_string||d.qrString||d.qrcode;S.done=false;S.secsLeft=300;
+    if(!S.qrString)throw new Error("QR string tidak diterima dari server");
+    saveSession();resetQrPage();renderDetail();renderQR();goPage("pg-qr");
+    startCountdown(300);
+    S.expireTimer=setTimeout(()=>triggerExpired(),300000);
+    S.checkTimer=setInterval(()=>autoCheck(),5000);
+  }catch(err){toast("⚠️ "+(err.message||"Terjadi kesalahan"),"err");}
+  finally{btn.disabled=false;btn.innerHTML=`<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Buat QRIS`;}
+}
+
+// AUTO & MANUAL CHECK
+async function autoCheck(){if(!S.trxId||S.done)return;try{const res=await fetch(`${API.status}?idTransaksi=${S.trxId}`,{headers:{...authHeader()}});if(!res.ok)return;handleStatus(await res.json(),false);}catch(_){}}
+let _cekCd=false;
+async function doCheckManual(){
+  if(!S.trxId||S.done||_cekCd)return;_cekCd=true;
+  const btn=document.getElementById("btn-cek");btn.disabled=true;btn.innerHTML=`<div class="spin" style="width:12px;height:12px;border-width:2px"></div> Mengecek…`;
+  try{const res=await fetch(`${API.status}?idTransaksi=${S.trxId}`,{headers:{...authHeader()}});if(!res.ok)throw new Error(`HTTP ${res.status}`);handleStatus(await res.json(),true);}
+  catch(err){showNotif("Gagal mengecek: "+err.message,"error");}
+  finally{setTimeout(()=>{_cekCd=false;const b=document.getElementById("btn-cek");if(b&&!S.done){b.disabled=false;b.innerHTML=`<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Cek Sekarang`;}},5000);}
+}
+
+// HANDLE STATUS
+function handleStatus(json,isManual){const s=String(json?.data?.status||"").toUpperCase().trim();if(s==="SUCCESS"){onSuccess();}else if(s==="EXPIRED"||s==="CANCELED"){triggerExpired();}else if(isManual){clearNotif();showNotif(`<strong>Pembayaran belum diterima.</strong><br>Status: <em>${s||"PENDING"}</em>. Tunggu beberapa saat lalu cek kembali.`,"pending");}}
+
+// SUCCESS
+function onSuccess(){
+  if(S.done)return;stopTimers();S.done=true;clearSession();
+  document.getElementById("success-detail").innerHTML=`
+    <div class="info-row"><span class="info-key">ID Transaksi</span><span class="info-val mono">${S.trxId}</span></div>
+    <div class="info-row"><span class="info-key">Tanggal</span><span class="info-val">${fmtDate(S.date)}</span></div>
+    <div class="info-row"><span class="info-key">Nominal</span><span class="info-val">${rp(S.amount)}</span></div>
+    <div class="info-row"><span class="info-key">Biaya Admin</span><span class="info-val">${S.fee>0?rp(S.fee):"Gratis"}</span></div>
+    <div class="info-row"><span class="info-key">Total Dibayar</span><span class="info-val blue">${rp(S.total)}</span></div>`;
+  toast("✅ Pembayaran berhasil diterima!","ok");goPage("pg-success");
+}
+
+// TRANSAKSI BARU
+function doNewTrx(){stopTimers();S.trxId=null;S.done=false;clearSession();resetQrPage();document.getElementById("inp-nominal").value="";document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));goPage("pg-form");}
+
+// ============================================================
+// INIT — cek token, verifikasi ke server, tidak perlu /api/config
+// ============================================================
+window.addEventListener("DOMContentLoaded", async () => {
+  const token = getToken();
+
+  if (!token) {
+    goPage("pg-intro");
     return;
   }
 
-  // Cek apakah email perlu konfirmasi atau langsung masuk
-  if(data?.session) {
-    // Confirm email OFF → langsung login, onAuthStateChange handle redirect
-    toast("✅ Akun berhasil dibuat!", "ok");
-  } else if(data?.user && !data?.session) {
-    // Confirm email ON → tampilkan instruksi cek email
-    document.getElementById("verify-email").textContent = email;
-    document.getElementById("form-reg").classList.add("hidden");
-    document.getElementById("verify-box").classList.remove("hidden");
-    document.getElementById("tab-reg").classList.remove("on");
-    document.getElementById("tab-login").classList.add("on");
-    btn.disabled = false;
-    btn.innerHTML = `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8zM19 8v6M22 11h-6"/></svg>Buat Akun`;
-  }
-}  
-  
-// ── AUTH: GOOGLE ──  
-async function loginGoogle(){  
-  const btn=event.currentTarget;  
-  btn.disabled=true; btn.innerHTML=`<div class="spin b"></div> Mengarahkan…`;  
-  const {error}=await sb.auth.signInWithOAuth({  
-    provider:"google",  
-    options:{ redirectTo: window.location.origin }  
-  });  
-  if(error){ toast("⚠️ "+error.message,"err"); btn.disabled=false; btn.innerHTML=`<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"/> Masuk dengan Google`; }  
-}  
-  
-async function doLogout(){  
-  await sb.auth.signOut();  
-  currentUser=null; clearSession(); stopTimers(); S.trxId=null;  
-  toast("👋 Berhasil keluar","info");  
-  goPage("pg-intro");  
-}  
-  
-function applyUser(user){  
-  currentUser=user;  
-  const name =user.user_metadata?.full_name||user.email?.split("@")[0]||"User";  
-  const email=user.email||"";  
-  const photo=user.user_metadata?.avatar_url;  
-  document.getElementById("user-name").textContent =name;  
-  document.getElementById("user-email").textContent=email;  
-  const av=document.getElementById("user-av");  
-  av.innerHTML=photo?`<img src="${photo}" alt="${name}"/>`:name.charAt(0).toUpperCase();  
-}  
-  
-// ── HISTORY ──  
-async function fetchHistory(page=1,filter="all",append=false){  
-  const el=document.getElementById("hist-content");  
-  if(!append) el.innerHTML=`<div class="hist-empty"><svg class="hist-empty-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg><p>Memuat…</p></div>`;  
-  try{  
-    const res=await fetch(`/api/history?page=${page}&limit=10&filter=${filter}`);  
-    if(!res.ok)throw new Error(`HTTP ${res.status}`);  
-    const json=await res.json();  
-    histHasMore=json.hasMore||false;  
-    const items=json.data||[];  
-    if(!append&&items.length===0){  
-      el.innerHTML=`<div class="hist-empty"><svg class="hist-empty-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg><p>Belum ada transaksi</p></div>`;  
-      return;  
-    }  
-    const html=items.map(t=>{  
-      const bc={SUCCESS:"hb-success",PENDING:"hb-pending",EXPIRED:"hb-expired",CANCELED:"hb-canceled"}[t.status]||"hb-canceled";  
-      const bt={SUCCESS:"✓ Berhasil",PENDING:"⏳ Pending",EXPIRED:"⏰ Expired",CANCELED:"✕ Dibatalkan"}[t.status]||t.status;  
-      const isOut=["TF_OUT","WD","BUY"].includes(t.type);  
-      return `<div class="hist-item">  
-        <div style="min-width:0;flex:1">  
-          <div class="hist-type">${t.type}</div>  
-          <div class="hist-id">${t.trxId}</div>  
-          <div style="font-size:12px;color:var(--g700);font-weight:500;margin-bottom:2px">${t.item||"—"}</div>  
-          <div class="hist-date">${fmtDate(t.date)}</div>  
-        </div>  
-        <div class="hist-right">  
-          <div class="hist-total" style="color:${isOut?"var(--red)":"var(--blue)"}">  
-            ${isOut?"-":""}${rp(t.totalTransfer||t.amount)}  
-          </div>  
-          <div><span class="hist-badge ${bc}">${bt}</span></div>  
-        </div>  
-      </div>`;  
-    }).join("");  
-    if(append){  
-      const list=el.querySelector(".hist-list");  
-      if(list)list.insertAdjacentHTML("beforeend",html);  
-      const lm=el.querySelector(".hist-load-more"); if(lm)lm.remove();  
-    } else {  
-      el.innerHTML=`<div class="hist-list">${html}</div>`;  
-    }  
-    if(histHasMore) el.insertAdjacentHTML("beforeend",`<button class="hist-load-more mt-8" onclick="loadMore()">Muat lebih banyak…</button>`);  
-  }catch(err){  
-    el.innerHTML=`<div class="hist-empty"><p style="color:var(--red)">⚠️ Gagal memuat: ${err.message}</p></div>`;  
-  }  
-}  
-function setFilter(f,el){ histFilter=f; histPage=1; document.querySelectorAll(".hist-filter button").forEach(b=>b.classList.remove("on")); el.classList.add("on"); fetchHistory(1,f,false); }  
-function loadMore(){ histPage++; fetchHistory(histPage,histFilter,true); }  
-function openHistory(){ histPage=1; histFilter="all"; document.querySelectorAll(".hist-filter button").forEach((b,i)=>b.classList.toggle("on",i===0)); goPage("pg-history"); fetchHistory(1,"all",false); }  
-  
-// ── NAVIGASI ──  
-function goPage(id){ document.querySelectorAll(".page").forEach(p=>p.classList.remove("active")); document.getElementById(id).classList.add("active"); window.scrollTo({top:0,behavior:"smooth"}); }  
-  
-// ── FORMAT ──  
-function rp(n){ return "Rp\u00A0"+Number(n).toLocaleString("id-ID"); }  
-function fmtDate(d){ if(!d)return"—"; try{return new Date(d).toLocaleString("id-ID",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});}catch(_){return String(d);} }  
-  
-// ── CHIPS ──  
-function pickChip(val,el){ document.getElementById("inp-nominal").value=val; document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on")); el.classList.add("on"); }  
-function syncChips(){ document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on")); }  
-  
-// ── TOAST ──  
-let _tt=null;  
-function toast(msg,type="info"){ const box=document.getElementById("toast-box"); clearTimeout(_tt); box.innerHTML=`<div class="toast t-${type}">${msg}</div>`; _tt=setTimeout(()=>{ const el=box.querySelector(".toast"); if(el){el.classList.add("out");setTimeout(()=>box.innerHTML="",230);}},3200); }  
-  
-// ── NOTIF / BADGE / TIMER ──  
-function showNotif(msg,type="pending"){ document.getElementById("notif-area").innerHTML=`<div class="notif n-${type}"><span class="notif-icon">${type==="pending"?"⏳":"⚠️"}</span><div>${msg}</div></div>`; }  
-function clearNotif(){ document.getElementById("notif-area").innerHTML=""; }  
-function setBadge(s){ const el=document.getElementById("badge"); el.className="badge"; if(s==="SUCCESS"){el.classList.add("b-success");el.innerHTML="✓&nbsp; Pembayaran Berhasil";}else if(s==="EXPIRED"){el.classList.add("b-expired");el.innerHTML="⏰&nbsp; Kedaluwarsa";}else{el.classList.add("b-pending");el.innerHTML=`<span class="dot"></span><span>Menunggu Pembayaran</span>`;} }  
-function startCountdown(secs){ S.secsLeft=secs||300; renderTimer(); S.countdown=setInterval(()=>{ S.secsLeft--; saveSession(); renderTimer(); if(S.secsLeft<=0)clearInterval(S.countdown); },1000); }  
-function renderTimer(){ const el=document.getElementById("timer-val"); if(!el)return; el.textContent=`${String(Math.floor(S.secsLeft/60)).padStart(2,"0")}:${String(S.secsLeft%60).padStart(2,"0")}`; el.classList.toggle("red",S.secsLeft<60); }  
-function stopTimers(){ clearInterval(S.checkTimer);clearTimeout(S.expireTimer);clearInterval(S.countdown); S.checkTimer=S.expireTimer=S.countdown=null; }  
-  
-// ── RENDER QR & DETAIL ──  
-function renderQR(){ document.getElementById("qrcode").innerHTML=""; const c=document.createElement("canvas"); document.getElementById("qrcode").appendChild(c); new QRious({element:c,value:S.qrString,size:196,foreground:"#1e3a8a",background:"#ffffff",level:"H"}); document.getElementById("qr-loading").classList.add("hidden"); document.getElementById("qr-ready").classList.remove("hidden"); }  
-function renderDetail(){ document.getElementById("inf-id").textContent=S.trxId; document.getElementById("inf-date").textContent=fmtDate(S.date); document.getElementById("inf-nominal").textContent=rp(S.amount); document.getElementById("inf-fee").textContent=S.fee>0?rp(S.fee):"Gratis"; document.getElementById("inf-total").textContent=rp(S.total); }  
-  
-// ── RESET QR PAGE ──  
-function resetQrPage(){ document.getElementById("qr-loading").classList.remove("hidden"); document.getElementById("qr-ready").classList.add("hidden"); document.getElementById("qrcode").innerHTML=""; clearNotif(); setBadge("PENDING"); document.getElementById("timer-row").classList.remove("hidden"); document.getElementById("expired-banner").classList.add("hidden"); document.getElementById("cek-box").classList.remove("hidden"); document.getElementById("ew-section").classList.remove("hidden"); const bc=document.getElementById("btn-cancel"); bc.classList.remove("hidden"); bc.disabled=false; bc.innerHTML=`<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Batalkan Transaksi`; document.getElementById("btn-new-trx").classList.add("hidden"); }  
-  
-// ── MODAL BATAL ──  
-function openModal(){ if(!S.trxId||S.done)return; document.getElementById("modal-bg").classList.remove("hidden"); }  
-function closeModal(){ const bg=document.getElementById("modal-bg"); bg.classList.add("closing"); setTimeout(()=>{bg.classList.add("hidden");bg.classList.remove("closing");},180); }  
-function modalBgClick(e){ if(e.target===document.getElementById("modal-bg"))closeModal(); }  
-async function confirmCancel(){  
-  closeModal(); const id=S.trxId; if(!id)return;  
-  stopTimers(); S.done=true;  
-  const btn=document.getElementById("btn-cancel");  
-  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spin r"></div> Membatalkan…`;}  
-  try{ await fetch(API.cancel,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({idTransaksi:id})}); }catch(_){}  
-  S.trxId=null;S.done=false;clearSession();  
-  resetQrPage(); document.getElementById("inp-nominal").value=""; document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));  
-  toast("✅ Transaksi berhasil dibatalkan","ok"); goPage("pg-landing");  
-}  
-  
-// ── EWALLET DEEP LINK ──
-function openEwallet(app) {
-  if (!S.qrString) return toast("⚠️ QR belum siap", "err");
+  try {
+    // Verifikasi token ke server
+    const res  = await fetch(API.auth.me, { headers: { ...authHeader() } });
+    const json = await res.json();
 
-  const qr = encodeURIComponent(S.qrString);
-  const links = {
-    // Dana — deep link resmi, buka app Dana langsung ke halaman bayar QRIS
-    dana:   `https://link.dana.id/qr?qrCode=${qr}`,
-    // GoPay — buka Gojek ke halaman scan
-    gopay:  `https://link.gojek.com/gopay/qrcode?qr=${qr}`,
-    // OVO — URI scheme buka OVO ke scan QRIS
-    ovo:    `ovo://scan?qrCode=${qr}`,
-    // ShopeePay — buka Shopee ke halaman scan
-    shopee: `shopeeid://payment/qr?qrCode=${qr}`,
-  };
+    if (json.status === 200) {
+      applyUser(json.user);
+      if (loadSession() && S.qrString && S.trxId) {
+        resetQrPage();renderDetail();renderQR();goPage("pg-qr");
+        startCountdown(S.secsLeft);
+        S.expireTimer=setTimeout(()=>triggerExpired(),S.secsLeft*1000);
+        S.checkTimer=setInterval(()=>autoCheck(),5000);
+        toast("🔄 Sesi pembayaran dipulihkan","info");
+      } else {
+        goPage("pg-landing");
+      }
+      return;
+    }
 
-  const url = links[app];
-  if (!url) return;
-
-  // Buka deep link — kalau app tidak terinstall, fallback ke Play Store / App Store
-  const fallback = {
-    dana:   "https://play.google.com/store/apps/details?id=id.dana",
-    gopay:  "https://play.google.com/store/apps/details?id=com.gojek.app",
-    ovo:    "https://play.google.com/store/apps/details?id=ovo.id",
-    shopee: "https://play.google.com/store/apps/details?id=com.shopee.id",
-  };
-
-  // Coba buka deep link, kalau gagal (app tidak ada) buka Play Store
-  const start = Date.now();
-  window.location.href = url;
-
-  setTimeout(() => {
-    // Kalau halaman masih aktif setelah 2 detik = app tidak terinstall
-    if (Date.now() - start < 2500) {
-      if(confirm(`App tidak terdeteksi. Buka Play Store untuk download?`)) {
-        window.open(fallback[app], "_blank");
+    // Token expired → coba refresh
+    const rt = localStorage.getItem(LS_REFRESH);
+    if (rt) {
+      const ref = await fetch(API.auth.refresh,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({refresh_token:rt})});
+      const refJson = await ref.json();
+      if (refJson.status === 200) {
+        setToken(refJson.session.access_token);
+        localStorage.setItem(LS_REFRESH, refJson.session.refresh_token);
+        const res2  = await fetch(API.auth.me,{headers:{"Authorization":`Bearer ${refJson.session.access_token}`}});
+        const json2 = await res2.json();
+        if (json2.status === 200) { applyUser(json2.user); goPage("pg-landing"); return; }
       }
     }
-  }, 2000);
-}  
-function triggerExpired(){ if(S.done)return; S.done=true; clearInterval(S.checkTimer);clearInterval(S.countdown);clearSession(); setBadge("EXPIRED"); document.getElementById("timer-row").classList.add("hidden"); document.getElementById("expired-banner").classList.remove("hidden"); document.getElementById("cek-box").classList.add("hidden"); document.getElementById("btn-cancel").classList.add("hidden"); document.getElementById("btn-new-trx").classList.remove("hidden"); document.getElementById("ew-section").classList.add("hidden"); toast("⏰ Transaksi kedaluwarsa","err"); }  
-  
-// ── GENERATE ──  
-async function doGenerate(){  
-  if(!currentUser){toast("⚠️ Silakan login terlebih dahulu","err");return;}  
-  const nominal=Number(document.getElementById("inp-nominal").value);  
-  if(!nominal||nominal<1000)return toast("⚠️ Minimal nominal adalah Rp 1.000","err");  
-  const btn=document.getElementById("btn-generate"); btn.disabled=true; btn.innerHTML=`<div class="spin"></div> Memproses…`;  
-  try{  
-    const res=await fetch(API.topup,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({nominal})});  
-    if(!res.ok)throw new Error(`HTTP ${res.status}`);  
-    const json=await res.json();  
-    if(json.status!==200)throw new Error(json.message||"Gagal membuat transaksi");  
-    const d=json.data;  
-    S.trxId=d.trxId||d.id; S.amount=d.amount||d.nominal||nominal; S.fee=d.fee||d.adminFee||d.uniqueCode||0;  
-    S.total=d.totalTransfer||d.total||(S.amount+S.fee); S.date=d.createdAt||d.date||new Date().toISOString();  
-    S.qrString=d.qr_string||d.qrString||d.qrcode; S.done=false; S.secsLeft=300;  
-    if(!S.qrString)throw new Error("QR string tidak diterima dari server");  
-    saveSession(); resetQrPage(); renderDetail(); renderQR(); goPage("pg-qr");  
-    startCountdown(300);  
-    S.expireTimer=setTimeout(()=>triggerExpired(),300000);  
-    S.checkTimer=setInterval(()=>autoCheck(),5000);  
-  }catch(err){ toast("⚠️ "+(err.message||"Terjadi kesalahan"),"err"); }  
-  finally{ btn.disabled=false; btn.innerHTML=`<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Buat QRIS`; }  
-}  
-  
-// ── AUTO & MANUAL CHECK ──  
-async function autoCheck(){ if(!S.trxId||S.done)return; try{ const res=await fetch(`${API.status}?idTransaksi=${S.trxId}`); if(!res.ok)return; handleStatus(await res.json(),false); }catch(_){} }  
-let _cekCd=false;  
-async function doCheckManual(){  
-  if(!S.trxId||S.done||_cekCd)return; _cekCd=true;  
-  const btn=document.getElementById("btn-cek"); btn.disabled=true; btn.innerHTML=`<div class="spin" style="width:12px;height:12px;border-width:2px"></div> Mengecek…`;  
-  try{ const res=await fetch(`${API.status}?idTransaksi=${S.trxId}`); if(!res.ok)throw new Error(`HTTP ${res.status}`); handleStatus(await res.json(),true); }  
-  catch(err){ showNotif("Gagal mengecek: "+err.message,"error"); }  
-  finally{ setTimeout(()=>{ _cekCd=false; const b=document.getElementById("btn-cek"); if(b&&!S.done){b.disabled=false;b.innerHTML=`<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Cek Sekarang`;}},5000); }  
-}  
-  
-// ── HANDLE STATUS ──  
-function handleStatus(json,isManual){ const s=String(json?.data?.status||"").toUpperCase().trim(); if(s==="SUCCESS"){onSuccess();}else if(s==="EXPIRED"||s==="CANCELED"){triggerExpired();}else if(isManual){clearNotif();showNotif(`<strong>Pembayaran belum diterima.</strong><br>Status: <em>${s||"PENDING"}</em>. Tunggu beberapa saat lalu cek kembali.`,"pending");} }  
-  
-// ── SUCCESS ──  
-function onSuccess(){  
-  if(S.done)return; stopTimers(); S.done=true; clearSession();  
-  document.getElementById("success-detail").innerHTML=`  
-    <div class="info-row"><span class="info-key">ID Transaksi</span><span class="info-val mono">${S.trxId}</span></div>  
-    <div class="info-row"><span class="info-key">Tanggal</span><span class="info-val">${fmtDate(S.date)}</span></div>  
-    <div class="info-row"><span class="info-key">Nominal</span><span class="info-val">${rp(S.amount)}</span></div>  
-    <div class="info-row"><span class="info-key">Biaya Admin</span><span class="info-val">${S.fee>0?rp(S.fee):"Gratis"}</span></div>  
-    <div class="info-row"><span class="info-key">Total Dibayar</span><span class="info-val blue">${rp(S.total)}</span></div>`;  
-  toast("✅ Pembayaran berhasil diterima!","ok"); goPage("pg-success");  
-}  
-  
-// ── TRANSAKSI BARU ──  
-function doNewTrx(){ stopTimers(); S.trxId=null; S.done=false; clearSession(); resetQrPage(); document.getElementById("inp-nominal").value=""; document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on")); goPage("pg-form"); }  
-  
-// ============================================================  
-// INIT — ambil config dulu dari /api/config, baru init Supabase  
-// ============================================================  
-window.addEventListener("DOMContentLoaded", async () => {  
-  try {  
-    // Ambil key dari server (env variable), bukan hardcode di HTML  
-    const cfg = await fetch("/api/config").then(r=>r.json());  
-    if (!cfg.supabaseUrl || !cfg.supabaseKey) throw new Error("Config tidak ditemukan");  
-  
-    // Init Supabase setelah dapat config  
-    sb = supabase.createClient(cfg.supabaseUrl, cfg.supabaseKey, {  
-      auth: { flowType:"pkce", persistSession:true, autoRefreshToken:true, detectSessionInUrl:true }  
-    });  
-  
-    // Timeout 4 detik — jika onAuthStateChange tidak fire, ke landing dulu
-    const authTimeout = setTimeout(() => goPage("pg-intro"), 4000);  
-  
-    sb.auth.onAuthStateChange((event, session) => {  
-      clearTimeout(authTimeout);  
-      if (session?.user) {  
-        applyUser(session.user);  
-        if (loadSession() && S.qrString && S.trxId) {  
-          resetQrPage(); renderDetail(); renderQR();  
-          goPage("pg-qr");  
-          startCountdown(S.secsLeft);  
-          S.expireTimer = setTimeout(()=>triggerExpired(), S.secsLeft*1000);  
-          S.checkTimer  = setInterval(()=>autoCheck(), 5000);  
-          toast("🔄 Sesi pembayaran dipulihkan","info");  
-        } else {  
-          goPage("pg-landing");  
-        }  
-      } else {  
-        // Belum login → landing page dulu, bukan langsung form login
-        goPage("pg-intro");  
-      }  
-    });  
-  
-  } catch(err) {  
-    console.error("Config error:", err);  
-    goPage("pg-intro");  
-    toast("⚠️ Gagal memuat konfigurasi","err");  
-  }  
-});  
-</script>  </body>  
-</html>  
+
+    // Semua gagal → ke intro
+    removeToken();
+    goPage("pg-intro");
+
+  } catch(err) {
+    console.error("Init error:", err);
+    goPage("pg-intro");
+  }
+});
+</script>
+</body>
+</html> 
