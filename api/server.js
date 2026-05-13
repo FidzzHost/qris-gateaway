@@ -254,5 +254,14 @@ app.post("/api/cancel", guard, async (req, res) => {
   }
 });
 
+app.get("/api/config", (req, res) => {
+  res.json({
+    status: 200,
+    allowedOrigin: ALLOWED_ORIGIN,
+    supabaseUrl: SUPABASE_URL,
+    // jangan kirim SUPABASE_KEY ke frontend kalau itu anon key aja
+  });
+});
+
 // Export untuk Vercel
 export default app;
