@@ -5,26 +5,25 @@ import { fileURLToPath } from "url";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import { createClient } from "@supabase/supabase-js";
+import ws from "ws"; // ← tambah
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 
-// ── ENV ──
+// ENV
 const FR3_KEY        = process.env.FR3_KEY || "";
 const SUPABASE_URL   = process.env.SUPABASE_URL || "";
 const SUPABASE_KEY   = process.env.SUPABASE_ANON_KEY || "";
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "https://www.fidzzonex.web.id";
 const ALLOWED_HOST   = (() => { 
-  try { 
-    return new URL(ALLOWED_ORIGIN).hostname; 
-  } catch(_) { 
-    return "fidzzonex.web.id"; 
-  } 
+  try { return new URL(ALLOWED_ORIGIN).hostname; } 
+  catch(_) { return "fidzzonex.web.id"; } 
 })();
 
-// ── Supabase client (server-side only) ──
+// Supabase client - tambah realtime.transport
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false }
+  auth: { autoRefreshToken: false, persistSession: false },
+  realtime: { transport: ws } // ← ini fix nya
 });
 
 app.use(helmet({ contentSecurityPolicy: false }));
