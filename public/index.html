@@ -785,6 +785,9 @@ function authHeader()  { const t=getToken(); return t?{"Authorization":`Bearer $
 (function handleOAuthCallback() {
   const hash = window.location.hash.substring(1);
 
+  // cegah loop
+  if (sessionStorage.getItem("oauth_done")) return;
+
   if (!hash.includes("access_token")) return;
 
   const params = new URLSearchParams(hash);
@@ -800,15 +803,19 @@ function authHeader()  { const t=getToken(); return t?{"Authorization":`Bearer $
     localStorage.setItem(LS_REFRESH, refresh_token);
   }
 
-  // hapus token dari URL
-  window.history.replaceState(
-  {},
-  document.title,
-  window.location.pathname
-);
+  // tandai sudah diproses
+  sessionStorage.setItem("oauth_done", "1");
 
-// reload biar init auth jalan ulang
-window.location.reload();
+  // bersihin URL
+  window.history.replaceState(
+    {},
+    document.title,
+    window.location.pathname
+  );
+
+  // reload sekali aja
+  window.location.href = "/";
+})();
     
 // Session storage (QR persist saat refresh)
 const SS_KEY = "qrispay_trx";
@@ -1102,6 +1109,7 @@ function doNewTrx(){stopTimers();S.trxId=null;S.done=false;clearSession();resetQ
 // INIT — cek token, verifikasi ke server, tidak perlu /api/config
 // ============================================================
 window.addEventListener("DOMContentLoaded", async () => {
+  sessionStorage.removeItem("oauth_done");
   const token = getToken();
 
   if (!token) {
