@@ -58,17 +58,20 @@ app.options("/api/*", (req, res) => {
 
 // ── GUARD ──
 function guard(req, res, next) {
-  const ua     = (req.headers["user-agent"] || "").toLowerCase();
-  const origin = req.headers["origin"]  || "";
-  
+  const ua = (req.headers["user-agent"] || "").toLowerCase();
+  const origin = req.headers["origin"] || "";
+
   if (["curl","wget","python","httpie","scrapy","go-http","okhttp"].some(b => ua.includes(b))) {
     return res.status(403).json({ status:403, message:"Forbidden" });
   }
-  if (origin && !origin.includes(ALLOWED_HOST)) {
+
+  const allowedOrigins = ALLOWED_ORIGIN.split(',').map(o => o.trim());
+
+  if (origin &&!allowedOrigins.includes(origin)) {
     return res.status(403).json({ status:403, message:"Origin tidak diizinkan" });
   }
 
-  res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
+  res.setHeader("Access-Control-Allow-Origin", origin || ALLOWED_ORIGIN.split(',')[0]);
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Cache-Control", "no-store");
   next();
