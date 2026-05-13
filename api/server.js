@@ -14,9 +14,7 @@ app.set("trust proxy", 1);
 const FR3_KEY = process.env.FR3_KEY || "";
 const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || "";
-const ALLOWED_ORIGIN =
-  process.env.ALLOWED_ORIGIN || "https://www.fidzzonex.web.id";
-
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "https://fidzzonex.web.id";
 // ── VALIDASI ENV ──
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error("SUPABASE ENV BELUM DIISI");
