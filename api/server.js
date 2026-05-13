@@ -257,13 +257,11 @@ app.post("/api/cancel", guard, async (req, res) => {
   }
 });
 
-app.get("/api/config", (req, res) => {
-  res.json({
-    status: 200,
-    supabaseUrl: SUPABASE_URL,
-    supabaseAnonKey: SUPABASE_KEY
-  });
-});
-
+fetch('/api/config')
+  .then(r => r.json())
+  .then(cfg => {
+    alert(JSON.stringify(cfg)); // hapus ini setelah ketemu masalah
+    sb = supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+  })
 // Export untuk Vercel
 export default app;
