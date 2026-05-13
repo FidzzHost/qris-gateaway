@@ -802,11 +802,13 @@ function authHeader()  { const t=getToken(); return t?{"Authorization":`Bearer $
 
   // hapus token dari URL
   window.history.replaceState(
-    {},
-    document.title,
-    window.location.pathname
-  );
-})();
+  {},
+  document.title,
+  window.location.pathname
+);
+
+// reload biar init auth jalan ulang
+window.location.reload();
     
 // Session storage (QR persist saat refresh)
 const SS_KEY = "qrispay_trx";
