@@ -2,10 +2,10 @@ import express from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import { createClient } from "@supabase/supabase-js";
+import ws from "ws"; // <- tambah ini
 
 const app = express();
 
-// Vercel proxy fix
 app.set("trust proxy", 1);
 
 // ── ENV ──
@@ -17,7 +17,8 @@ const ALLOWED_HOST   = (() => { try { return new URL(ALLOWED_ORIGIN).hostname; }
 
 // ── Supabase (server-side only) ──
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false }
+  auth: { autoRefreshToken: false, persistSession: false },
+  realtime: { transport: ws } // <- tambah ini
 });
 
 app.use(helmet({ contentSecurityPolicy: false }));
