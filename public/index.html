@@ -779,6 +779,35 @@ function setToken(t)   { localStorage.setItem(LS_TOKEN, t); }
 function removeToken() { localStorage.removeItem(LS_TOKEN); localStorage.removeItem(LS_REFRESH); }
 function authHeader()  { const t=getToken(); return t?{"Authorization":`Bearer ${t}`}:{}; }
 
+// ============================================================
+// HANDLE GOOGLE OAUTH CALLBACK
+// ============================================================
+(function handleOAuthCallback() {
+  const hash = window.location.hash.substring(1);
+
+  if (!hash.includes("access_token")) return;
+
+  const params = new URLSearchParams(hash);
+
+  const access_token  = params.get("access_token");
+  const refresh_token = params.get("refresh_token");
+
+  if (access_token) {
+    localStorage.setItem(LS_TOKEN, access_token);
+  }
+
+  if (refresh_token) {
+    localStorage.setItem(LS_REFRESH, refresh_token);
+  }
+
+  // hapus token dari URL
+  window.history.replaceState(
+    {},
+    document.title,
+    window.location.pathname
+  );
+})();
+    
 // Session storage (QR persist saat refresh)
 const SS_KEY = "qrispay_trx";
 function saveSession(){
