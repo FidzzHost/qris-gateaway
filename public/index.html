@@ -1139,21 +1139,41 @@ function doNewTrx(){stopTimers();S.trxId=null;S.done=false;clearSession();resetQ
 // ============================================================
 // INIT
 // ============================================================
+<script>
+// ... kode kamu yang lain tetap ...
+
 window.addEventListener("DOMContentLoaded", async () => {
   console.log("🚀 App init started");
 
-  // Bersihkan dulu
+  // Bersihkan flag lama
   sessionStorage.removeItem("oauth_code");
   sessionStorage.removeItem("oauth_done");
 
   // === HANDLE SUPABASE OAUTH CALLBACK ===
   const hash = window.location.hash.substring(1);
-  const urlParams = new URLSearchParams(hash);
-  const code = urlParams.get("code") || sessionStorage.getItem("oauth_code");
+  const search = window.location.search.substring(1);
+  const params = new URLSearchParams(hash || search);
 
+  const code = params.get("code");
+  const error = params.get("error");
+  const errorDesc = params.get("error_description");
+
+  // Jika ada error dari Supabase
+  if (error) {
+    console.error("❌ OAuth Error:", error, errorDesc);
+    toast(`⚠️ ${errorDesc || error}`, "err");
+    // Bersihkan URL
+    window.history.replaceState(null, null, window.location.pathname);
+    goPage("pg-intro");
+    return;
+  }
+
+  // Jika ada code → lakukan exchange
   if (code) {
     console.log("🔄 Menukar code ke session...");
-    window.history.replaceState(null, null, window.location.pathname); // bersihkan hash
+
+    // Bersihkan URL segera
+    window.history.replaceState(null, null, window.location.pathname);
 
     try {
       const res = await fetch("/api/auth/callback", {
@@ -1165,11 +1185,13 @@ window.addEventListener("DOMContentLoaded", async () => {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const json = await res.json();
-      console.log("Callback response:", json);
+      console.log("✅ Callback response:", json);
 
       if (json.status === 200) {
         setToken(json.session.access_token);
-        localStorage.setItem(LS_REFRESH, json.session.refresh_token || "");
+        if (json.session.refresh_token) {
+          localStorage.setItem(LS_REFRESH, json.session.refresh_token);
+        }
         applyUser(json.user);
         
         toast("✅ Login berhasil!", "ok");
@@ -1180,15 +1202,16 @@ window.addEventListener("DOMContentLoaded", async () => {
       }
     } catch (err) {
       console.error("❌ Callback error:", err);
-      toast("⚠️ Gagal memproses login. Coba lagi.", "err");
+      toast("⚠️ Gagal memproses login. Silakan coba lagi.", "err");
+      goPage("pg-intro");
+      return;
     }
-
-    // Bersihkan code
-    sessionStorage.removeItem("oauth_code");
   }
 
-  // === CEK LOGIN NORMAL ===
+  // === CEK LOGIN NORMAL (hanya jika bukan callback) ===
+  console.log("🔍 Cek status login...");
   const token = getToken();
+
   if (!token) {
     console.log("No token → ke intro");
     goPage("pg-intro");
@@ -1196,7 +1219,6 @@ window.addEventListener("DOMContentLoaded", async () => {
   }
 
   try {
-    console.log("Cek token existing...");
     const res = await fetch(API.auth.me, { 
       headers: { ...authHeader() } 
     });
@@ -1207,7 +1229,10 @@ window.addEventListener("DOMContentLoaded", async () => {
       console.log("✅ User sudah login");
 
       if (loadSession() && S.qrString && S.trxId) {
-        resetQrPage(); renderDetail(); renderQR(); goPage("pg-qr");
+        resetQrPage(); 
+        renderDetail(); 
+        renderQR(); 
+        goPage("pg-qr");
       } else {
         goPage("pg-form");
       }
@@ -1217,11 +1242,11 @@ window.addEventListener("DOMContentLoaded", async () => {
     console.error("ME error:", e);
   }
 
-  // Refresh token kalau expired
+  // Coba refresh token
   const rt = localStorage.getItem(LS_REFRESH);
   if (rt) {
-    console.log("Mencoba refresh token...");
-    // refresh logic kamu (biarin seperti semula)
+    console.log("🔄 Mencoba refresh token...");
+    // refresh logic kamu (biarkan seperti semula)
   } else {
     removeToken();
     goPage("pg-intro");
@@ -1229,4 +1254,4 @@ window.addEventListener("DOMContentLoaded", async () => {
 });
 </script>
 </body>
-</html> 
+</html>
