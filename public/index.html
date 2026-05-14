@@ -1138,19 +1138,36 @@ function doNewTrx(){stopTimers();S.trxId=null;S.done=false;clearSession();resetQ
 
 // ============================================================
 // INIT
-// ============================================================  try {
+// ============================================================  try {    const json = await res.json();
+
     <script>
 // ============================================================
-// INIT - VERSI PALING AMAN
+// TOKEN & HELPER
+// ============================================================
+const LS_TOKEN   = "qrispay_token";
+const LS_REFRESH = "qrispay_refresh";
+
+function getToken()    { return localStorage.getItem(LS_TOKEN); }
+function setToken(t)   { if(t) localStorage.setItem(LS_TOKEN, t); }
+function removeToken() { localStorage.removeItem(LS_TOKEN); localStorage.removeItem(LS_REFRESH); }
+function authHeader()  { 
+  const t = getToken(); 
+  return t ? { "Authorization": `Bearer ${t}` } : {}; 
+}
+
+// ============================================================
+// INIT - FINAL VERSION
 // ============================================================
 window.addEventListener("DOMContentLoaded", async () => {
-  console.log("🚀 App init started");
+  console.log("%c🚀 QRIS Pay Init Started", "color: #2563eb; font-weight: bold");
 
-  // Matikan loading page SEGERA
+  // Matikan loading screen SEGERA
   document.getElementById("pg-loading").classList.remove("active");
 
-  // Bersihkan
-  sessionStorage.removeItem("oauth_code");
+  // Bersihkan URL callback
+  if (window.location.hash || window.location.search.includes("code=")) {
+    window.history.replaceState(null, null, "/");
+  }
 
   const hash = window.location.hash.substring(1);
   const search = window.location.search.substring(1);
@@ -1158,27 +1175,22 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   const code = params.get("code");
   const error = params.get("error");
-  const errorDesc = params.get("error_description");
 
+  // Handle Error dari Supabase
   if (error) {
-    console.error("OAuth Error:", errorDesc);
-    toast(`⚠️ ${errorDesc || error}`, "err");
-    window.history.replaceState(null, null, "/");
+    toast(`⚠️ Login gagal: ${params.get("error_description") || error}`, "err");
     goPage("pg-intro");
     return;
   }
 
-  // === HANDLE CALLBACK ===
+  // Handle OAuth Callback
   if (code) {
-    console.log("🔄 Processing OAuth callback...");
-    window.history.replaceState(null, null, "/");
-
+    console.log("🔄 Exchange code...");
     try {
       const res = await fetch("/api/auth/callback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
-        signal: AbortSignal.timeout(15000)
+        body: JSON.stringify({ code })
       });
 
       const json = await res.json();
@@ -1190,52 +1202,37 @@ window.addEventListener("DOMContentLoaded", async () => {
         toast("✅ Login berhasil!", "ok");
         goPage("pg-form");
         return;
-      } else {
-        throw new Error(json.message || "Login gagal");
       }
     } catch (err) {
-      console.error("Callback error:", err);
-      toast("Gagal memproses login. Coba lagi.", "err");
+      console.error(err);
+      toast("Gagal memproses login", "err");
     }
   }
 
-  // === CEK LOGIN BIASA ===
-  console.log("🔍 Cek status login...");
+  // Cek apakah sudah login
+  const token = getToken();
+  if (!token) {
+    console.log("→ Belum login");
+    goPage("pg-intro");
+    return;
+  }
+
   try {
-    const token = getToken();
-    if (!token) {
-      console.log("→ No token, ke intro");
-      goPage("pg-intro");
-      return;
-    }
-
-    const controller = new AbortController();
-    setTimeout(() => controller.abort(), 8000);
-
-    const res = await fetch(API.auth.me, {
-      headers: { ...authHeader() },
-      signal: controller.signal
-    });
-
+    const res = await fetch("/api/auth/me", { headers: authHeader() });
     const json = await res.json();
 
     if (json.status === 200) {
       applyUser(json.user);
-      console.log("✅ User sudah login");
-      
-      if (loadSession() && S.qrString && S.trxId) {
-        resetQrPage(); renderDetail(); renderQR(); goPage("pg-qr");
-      } else {
-        goPage("pg-form");
-      }
+      console.log("✅ Sudah login");
+      goPage("pg-form");
       return;
     }
   } catch (e) {
-    console.error("ME check error:", e);
+    console.error("ME check failed", e);
   }
 
   // Fallback
-  console.log("→ Fallback ke intro");
+  removeToken();
   goPage("pg-intro");
 });
 </script>
