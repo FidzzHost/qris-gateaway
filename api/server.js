@@ -159,12 +159,16 @@ app.get("/api/auth/google", async (req, res) => {
   try {
     const { data, error } = await sb.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: ALLOWED_ORIGIN }
+      options: { 
+        redirectTo: `${ALLOWED_ORIGIN}/`,   // tambah slash di akhir
+        queryParams: { access_type: 'offline' }
+      }
     });
     if (error) return res.status(500).json({ status: 500, message: error.message });
-    return res.json({ status: 200, url: data.url });
+    
+    res.json({ status: 200, url: data.url });
   } catch (err) {
-    return res.status(500).json({ status: 500, message: err.message });
+    res.status(500).json({ status: 500, message: err.message });
   }
 });
 
