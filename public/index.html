@@ -1,0 +1,1223 @@
+
+
+<!DOCTYPE html>  
+<html lang="id">  
+<head>  
+<meta charset="UTF-8"/>  
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>  
+<title>QRIS Pay</title>  
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>  
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>  
+<style>  
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');  
+:root {  
+  --blue:#2563eb;--blue-d:#1d4ed8;--blue-100:#dbeafe;--blue-50:#eff6ff;  
+  --white:#fff;--g900:#111827;--g700:#374151;--g500:#6b7280;  
+  --g400:#9ca3af;--g300:#d1d5db;--g200:#e5e7eb;--g100:#f3f4f6;--g50:#f9fafb;  
+  --green:#16a34a;--green-100:#dcfce7;--green-200:#bbf7d0;  
+  --red:#dc2626;--red-100:#fee2e2;--red-200:#fecaca;  
+  --amber:#d97706;--amber-100:#fef3c7;--amber-200:#fde68a;  
+  --r-sm:8px;--r-md:12px;--r-lg:16px;--r-xl:20px;  
+  --sh-sm:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.05);  
+  --sh-md:0 4px 16px rgba(0,0,0,.08);  
+  --sh-lg:0 8px 32px rgba(0,0,0,.10),0 2px 8px rgba(0,0,0,.06);  
+}  
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}  
+html,body{height:100%;}  
+body{font-family:'Inter',sans-serif;font-size:14px;line-height:1.55;color:var(--g900);background:var(--g50);min-height:100%;display:flex;align-items:flex-start;justify-content:center;padding:32px 16px 48px;}  
+#app{width:100%;max-width:420px;}  /* PAGES */
+.page{display:none;}
+.page.active{display:flex;flex-direction:column;gap:16px;animation:slideUp .3s ease both;}
+@keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* BRAND */
+.brand{text-align:center;padding:6px 0;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.brand-row{display:flex;align-items:center;gap:10px;}
+.brand-icon{width:40px;height:40px;background:var(--blue);border-radius:var(--r-md);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(37,99,235,.35);}
+.brand-icon svg{width:22px;height:22px;fill:white;}
+.brand-name{font-size:21px;font-weight:800;color:var(--g900);letter-spacing:-.3px;}
+.brand-name span{color:var(--blue);}
+.brand-tag{font-size:12.5px;color:var(--g500);}
+
+/* CARD */
+.card{background:var(--white);border:1px solid var(--g200);border-radius:var(--r-xl);padding:24px;box-shadow:var(--sh-sm);}
+.card-title{font-size:14.5px;font-weight:700;color:var(--g900);margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.t-icon{width:28px;height:28px;border-radius:var(--r-sm);background:var(--blue-50);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.t-icon svg{width:14px;height:14px;stroke:var(--blue);fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;}
+
+/* FIELD */
+.field{display:flex;flex-direction:column;gap:5px;}
+.f-label{font-size:11px;font-weight:700;color:var(--g500);text-transform:uppercase;letter-spacing:.6px;}
+.f-hint{font-size:11.5px;color:var(--g400);}
+.input-wrap{display:flex;align-items:stretch;border:1.5px solid var(--g300);border-radius:var(--r-md);overflow:hidden;background:var(--white);transition:border-color .18s,box-shadow .18s;}
+.input-wrap:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
+.input-pfx{padding:0 13px;background:var(--blue-50);color:var(--blue);font-weight:700;font-size:14px;display:flex;align-items:center;border-right:1.5px solid var(--blue-100);flex-shrink:0;user-select:none;}
+.input-wrap input{flex:1;min-width:0;height:46px;padding:0 14px;border:none;outline:none;background:transparent;font-family:'Inter',sans-serif;font-size:15px;font-weight:500;color:var(--g900);}
+.input-wrap input::placeholder{color:var(--g400);font-weight:400;font-size:14px;}
+
+/* AUTH INPUT (full width, no prefix) */
+.auth-input{width:100%;height:46px;padding:0 42px 0 14px;border:1.5px solid var(--g300);border-radius:var(--r-md);outline:none;background:var(--white);font-family:'Inter',sans-serif;font-size:14px;color:var(--g900);transition:border-color .18s,box-shadow .18s;}
+.auth-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
+.auth-input::placeholder{color:var(--g400);}
+.input-rel{position:relative;}
+.eye-btn{position:absolute;right:12px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;color:var(--g400);display:flex;align-items:center;padding:4px;}
+.eye-btn:hover{color:var(--g700);}
+
+/* CHIPS */
+.chip-lbl{font-size:11px;font-weight:700;color:var(--g500);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;}
+.chips{display:flex;flex-wrap:wrap;gap:7px;}
+.chip{padding:5px 13px;border-radius:999px;border:1.5px solid var(--blue-100);background:var(--blue-50);color:var(--blue);font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;transition:background .14s,border-color .14s,transform .08s;user-select:none;}
+.chip:hover{background:var(--blue-100);border-color:var(--blue);}
+.chip:active{transform:scale(.93);}
+.chip.on{background:var(--blue);border-color:var(--blue);color:var(--white);}
+
+/* SEP */
+.sep{height:1px;background:var(--g100);border:none;margin:4px 0;}
+.or-sep{display:flex;align-items:center;gap:10px;}
+.or-sep::before,.or-sep::after{content:'';flex:1;height:1px;background:var(--g200);}
+.or-sep span{font-size:12px;color:var(--g400);font-weight:500;}
+
+/* BUTTONS */
+.btn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;height:48px;border:none;border-radius:var(--r-md);font-family:'Inter',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:background .18s,box-shadow .18s,transform .1s,opacity .18s;white-space:nowrap;}
+.btn:active:not(:disabled){transform:scale(.97);}
+.btn:disabled{opacity:.52;cursor:not-allowed;}
+.btn-blue{background:var(--blue);color:var(--white);box-shadow:0 2px 10px rgba(37,99,235,.32);}
+.btn-blue:hover:not(:disabled){background:var(--blue-d);box-shadow:0 4px 16px rgba(37,99,235,.42);}
+.btn-outline{background:var(--blue-50);color:var(--blue);border:1.5px solid var(--blue-100);}
+.btn-outline:hover:not(:disabled){background:var(--blue-100);border-color:var(--blue);}
+.btn-red{background:var(--red-100);color:var(--red);border:1.5px solid var(--red-200);}
+.btn-red:hover:not(:disabled){background:var(--red-200);}
+.btn-stack{display:flex;flex-direction:column;gap:8px;}
+.btn-google{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:48px;border:1.5px solid var(--g200);border-radius:var(--r-md);background:var(--white);color:var(--g900);font-family:'Inter',sans-serif;font-size:14px;font-weight:600;cursor:pointer;box-shadow:var(--sh-sm);transition:border-color .18s,box-shadow .18s,transform .1s;}
+.btn-google:hover{border-color:var(--g300);box-shadow:var(--sh-md);}
+.btn-google:active{transform:scale(.97);}
+.btn-google:disabled{opacity:.5;cursor:not-allowed;}
+.btn-google img{width:20px;height:20px;flex-shrink:0;}
+
+/* AUTH TABS */
+.auth-tabs{display:flex;border-radius:var(--r-md);background:var(--g100);padding:3px;gap:3px;}
+.auth-tab{flex:1;height:36px;border:none;border-radius:var(--r-sm);background:transparent;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--g500);cursor:pointer;transition:all .18s;}
+.auth-tab.on{background:var(--white);color:var(--blue);box-shadow:var(--sh-sm);}
+
+/* AUTH ERROR */
+.auth-err{padding:10px 13px;background:var(--red-100);border:1px solid var(--red-200);border-radius:var(--r-md);font-size:12.5px;color:var(--red);font-weight:500;line-height:1.5;}
+
+/* VERIFY BOX */
+.verify-box{text-align:center;padding:8px;}
+.verify-icon{font-size:44px;display:block;margin-bottom:12px;}
+.verify-title{font-size:17px;font-weight:800;color:var(--g900);margin-bottom:6px;}
+.verify-desc{font-size:13px;color:var(--g500);line-height:1.6;}
+
+/* USER HEADER */
+.user-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--white);border:1px solid var(--g200);border-radius:var(--r-md);box-shadow:var(--sh-sm);}
+.user-info{display:flex;align-items:center;gap:10px;}
+.user-av{width:34px;height:34px;border-radius:50%;background:var(--blue);color:white;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;overflow:hidden;}
+.user-av img{width:100%;height:100%;object-fit:cover;}
+.user-name{font-size:13px;font-weight:600;color:var(--g900);line-height:1.2;}
+.user-email{font-size:11px;color:var(--g500);}
+.btn-logout{height:30px;padding:0 10px;border-radius:var(--r-sm);border:1.5px solid var(--g200);background:var(--g50);color:var(--g500);font-family:'Inter',sans-serif;font-size:11.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all .15s;white-space:nowrap;flex-shrink:0;}
+.btn-logout:hover{background:var(--red-100);color:var(--red);border-color:var(--red-200);}
+
+/* FEAT LIST */
+.feat-list{display:flex;flex-direction:column;gap:8px;}
+.feat-item{display:flex;align-items:center;gap:12px;padding:12px;background:var(--g50);border:1px solid var(--g200);border-radius:var(--r-md);}
+.feat-num{width:28px;height:28px;border-radius:50%;background:var(--blue);color:white;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.feat-txt strong{font-size:13px;font-weight:600;display:block;}
+.feat-txt span{font-size:12px;color:var(--g500);}
+
+/* INFO TABLE */
+.info-table{border:1px solid var(--g200);border-radius:var(--r-md);overflow:hidden;}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:11px 16px;background:var(--white);}
+.info-row+.info-row{border-top:1px solid var(--g100);}
+.info-row:last-child{background:var(--blue-50);}
+.info-key{font-size:12.5px;color:var(--g500);font-weight:500;}
+.info-val{font-size:13px;font-weight:600;color:var(--g900);text-align:right;max-width:60%;word-break:break-all;}
+.info-val.blue{color:var(--blue);font-size:15px;}
+.info-val.mono{font-family:'Courier New',monospace;font-size:11.5px;color:var(--g700);}
+
+/* QR */
+.qr-area{display:flex;flex-direction:column;align-items:center;gap:14px;padding:8px 0 4px;}
+.qr-frame{padding:14px;background:var(--white);border:1.5px solid var(--g200);border-radius:var(--r-lg);box-shadow:var(--sh-md);position:relative;animation:qrPop .4s cubic-bezier(.34,1.25,.64,1) both;}
+@keyframes qrPop{from{opacity:0;transform:scale(.82)}to{opacity:1;transform:scale(1)}}
+.qr-frame::before,.qr-frame::after{content:'';position:absolute;width:18px;height:18px;border-style:solid;border-color:var(--blue);}
+.qr-frame::before{top:6px;left:6px;border-width:2px 0 0 2px;border-radius:3px 0 0 0;}
+.qr-frame::after{bottom:6px;right:6px;border-width:0 2px 2px 0;border-radius:0 0 3px 0;}
+#qrcode canvas,#qrcode img{display:block;border-radius:4px;}
+.qr-note{font-size:12px;color:var(--g400);text-align:center;}
+.qr-skel{width:196px;height:196px;border-radius:4px;background:linear-gradient(90deg,var(--g200) 25%,var(--g100) 50%,var(--g200) 75%);background-size:200% 100%;animation:shimmer 1.3s infinite;}
+@keyframes shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+
+/* BADGE */
+.badge-wrap{display:flex;justify-content:center;}
+.badge{display:inline-flex;align-items:center;gap:7px;padding:6px 16px;border-radius:999px;font-size:12.5px;font-weight:600;border:1.5px solid transparent;transition:all .3s ease;}
+.b-pending{background:var(--amber-100);color:var(--amber);border-color:var(--amber-200);}
+.b-success{background:var(--green-100);color:var(--green);border-color:var(--green-200);}
+.b-expired{background:var(--red-100);color:var(--red);border-color:var(--red-200);}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0;animation:dp 1.5s ease-in-out infinite;}
+@keyframes dp{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.6)}}
+
+/* TIMER */
+.timer{display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:var(--g400);}
+.timer-val{font-weight:700;color:var(--amber);min-width:38px;font-variant-numeric:tabular-nums;transition:color .3s;}
+.timer-val.red{color:var(--red);}
+
+/* NOTIF */
+.notif{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:var(--r-md);font-size:13px;animation:slideUp .25s ease both;}
+.notif-icon{font-size:15px;flex-shrink:0;margin-top:1px;}
+.n-pending{background:var(--amber-100);color:var(--amber);border:1px solid var(--amber-200);}
+.n-error{background:var(--red-100);color:var(--red);border:1px solid var(--red-200);}
+
+/* CEK MANUAL */
+.cek-box{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--g50);border:1px solid var(--g200);border-radius:var(--r-md);gap:10px;}
+.cek-txt{font-size:12.5px;color:var(--g500);}
+.cek-txt strong{display:block;font-size:13px;font-weight:600;color:var(--g700);}
+.btn-cek{flex-shrink:0;height:34px;padding:0 14px;border-radius:var(--r-sm);border:none;background:var(--blue);color:white;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;transition:background .15s,transform .1s;white-space:nowrap;}
+.btn-cek:hover{background:var(--blue-d);}
+.btn-cek:active{transform:scale(.95);}
+.btn-cek:disabled{opacity:.5;cursor:not-allowed;}
+
+/* EXPIRED BANNER */
+.expired-banner{display:flex;align-items:center;gap:12px;padding:16px;background:var(--red-100);border:1px solid var(--red-200);border-radius:var(--r-md);animation:slideUp .3s ease both;}
+.expired-icon{font-size:28px;flex-shrink:0;}
+.expired-txt strong{display:block;font-size:14px;font-weight:700;color:var(--red);}
+.expired-txt span{font-size:12px;color:#b91c1c;}
+
+/* MODAL */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000;padding:24px;animation:fadeIn .2s ease both;}
+.modal-bg.closing{animation:fadeOut .18s ease both;}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeOut{from{opacity:1}to{opacity:0}}
+.modal{background:var(--white);border-radius:var(--r-xl);padding:28px 24px;width:100%;max-width:340px;box-shadow:var(--sh-lg);animation:modalIn .25s cubic-bezier(.34,1.3,.64,1) both;}
+.modal-bg.closing .modal{animation:modalOut .18s ease both;}
+@keyframes modalIn{from{opacity:0;transform:scale(.88) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes modalOut{from{opacity:1}to{opacity:0;transform:scale(.92)}}
+.modal-icon{width:52px;height:52px;border-radius:50%;background:var(--red-100);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;}
+.modal-icon svg{width:26px;height:26px;stroke:var(--red);fill:none;stroke-width:2.5;stroke-linecap:round;}
+.modal-title{font-size:16px;font-weight:800;color:var(--g900);text-align:center;margin-bottom:6px;}
+.modal-desc{font-size:13px;color:var(--g500);text-align:center;line-height:1.6;margin-bottom:20px;}
+.modal-btns{display:flex;flex-direction:column;gap:8px;}
+
+/* SUCCESS */
+.success-hero{display:flex;flex-direction:column;align-items:center;gap:10px;padding:28px 0 16px;text-align:center;}
+.success-ring{width:72px;height:72px;border-radius:50%;background:var(--green-100);border:3px solid var(--green-200);display:flex;align-items:center;justify-content:center;animation:sPop .5s cubic-bezier(.34,1.4,.64,1) both;}
+@keyframes sPop{from{opacity:0;transform:scale(.35)}to{opacity:1;transform:scale(1)}}
+.success-ring svg{width:32px;height:32px;stroke:var(--green);fill:none;stroke-width:2.8;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:50;stroke-dashoffset:50;animation:draw .45s .3s ease forwards;}
+@keyframes draw{to{stroke-dashoffset:0}}
+.success-h{font-size:19px;font-weight:800;color:var(--green);letter-spacing:-.3px;}
+.success-s{font-size:13px;color:var(--g500);}
+
+/* HISTORY */
+.hist-empty{text-align:center;padding:32px 16px;color:var(--g400);}
+.hist-empty-icon{width:48px;height:48px;stroke:var(--g300);fill:none;stroke-width:1.5;margin:0 auto 12px;display:block;}
+.hist-empty p{font-size:13px;}
+.hist-list{display:flex;flex-direction:column;gap:8px;}
+.hist-item{display:flex;align-items:flex-start;justify-content:space-between;padding:13px 16px;background:var(--white);border-radius:var(--r-md);border:1px solid var(--g200);animation:slideUp .25s ease both;}
+.hist-id{font-family:'Courier New',monospace;font-size:10.5px;color:var(--g500);margin-bottom:2px;}
+.hist-date{font-size:11px;color:var(--g400);margin-top:3px;}
+.hist-right{text-align:right;flex-shrink:0;margin-left:10px;}
+.hist-total{font-size:14px;font-weight:700;}
+.hist-badge{display:inline-flex;align-items:center;gap:3px;margin-top:4px;padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:600;}
+.hb-success{background:var(--green-100);color:var(--green);}
+.hb-pending{background:var(--amber-100);color:var(--amber);}
+.hb-expired{background:var(--red-100);color:var(--red);}
+.hb-canceled{background:var(--g100);color:var(--g500);}
+.hist-type{display:inline-block;padding:1px 7px;border-radius:4px;font-size:9.5px;font-weight:700;background:var(--blue-50);color:var(--blue);margin-bottom:4px;}
+.hist-load-more{width:100%;padding:10px;border:1.5px dashed var(--g200);border-radius:var(--r-md);background:transparent;color:var(--g500);font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:border-color .15s,color .15s;}
+.hist-load-more:hover{border-color:var(--blue);color:var(--blue);}
+.hist-filter{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+.hist-filter button{padding:5px 12px;border-radius:999px;border:1.5px solid var(--g200);background:var(--g50);color:var(--g500);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .14s;}
+.hist-filter button.on{background:var(--blue);border-color:var(--blue);color:white;}
+.hist-filter button:hover:not(.on){border-color:var(--blue-100);background:var(--blue-50);color:var(--blue);}
+
+/* LANDING PAGE */
+.lp-hero{text-align:center;padding:20px 0 8px;}
+.lp-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;background:var(--blue-50);border:1px solid var(--blue-100);font-size:11.5px;font-weight:700;color:var(--blue);margin-bottom:16px;letter-spacing:.2px;}
+.lp-badge span{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0;}
+.lp-title{font-size:28px;font-weight:800;color:var(--g900);letter-spacing:-1px;line-height:1.15;margin-bottom:10px;}
+.lp-title em{color:var(--blue);font-style:normal;}
+.lp-desc{font-size:13.5px;color:var(--g500);line-height:1.65;margin-bottom:4px;}
+.lp-features{display:flex;flex-direction:column;gap:10px;}
+.lp-feat{display:flex;align-items:flex-start;gap:12px;padding:14px;background:var(--g50);border:1px solid var(--g200);border-radius:var(--r-md);transition:border-color .15s,box-shadow .15s;}
+.lp-feat:hover{border-color:var(--blue-100);box-shadow:var(--sh-sm);}
+.lp-feat-icon{width:36px;height:36px;border-radius:var(--r-sm);background:var(--blue-50);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.lp-feat-icon svg{width:18px;height:18px;stroke:var(--blue);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.lp-feat-txt strong{font-size:13px;font-weight:700;color:var(--g900);display:block;margin-bottom:2px;}
+.lp-feat-txt span{font-size:12px;color:var(--g500);line-height:1.5;}
+.lp-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.lp-stat{text-align:center;padding:14px 8px;background:var(--white);border:1px solid var(--g200);border-radius:var(--r-md);}
+.lp-stat-num{font-size:18px;font-weight:800;color:var(--blue);letter-spacing:-.5px;}
+.lp-stat-lbl{font-size:11px;color:var(--g500);margin-top:2px;font-weight:500;}
+.lp-trust{display:flex;align-items:center;justify-content:center;gap:16px;padding:10px 0;}
+.lp-trust-item{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--g500);font-weight:500;}
+.lp-trust-item svg{width:13px;height:13px;stroke:var(--green);fill:none;stroke-width:2.5;flex-shrink:0;stroke-linecap:round;}
+.btn-get-started{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:52px;border:none;border-radius:var(--r-md);background:var(--blue);color:var(--white);font-family:'Inter',sans-serif;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(37,99,235,.38);transition:background .18s,box-shadow .18s,transform .1s;letter-spacing:-.1px;}
+.btn-get-started:hover{background:var(--blue-d);box-shadow:0 6px 22px rgba(37,99,235,.46);transform:translateY(-1px);}
+.btn-get-started:active{transform:scale(.97);}
+
+/* EWALLET SHORTCUTS */
+.ew-section{display:flex;flex-direction:column;gap:8px;}
+.ew-label{font-size:11px;font-weight:700;color:var(--g500);text-transform:uppercase;letter-spacing:.6px;}
+.ew-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+.ew-btn{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:var(--r-md);border:1.5px solid var(--g200);background:var(--white);cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .1s;text-decoration:none;width:100%;}
+.ew-btn:hover{box-shadow:var(--sh-sm);transform:translateY(-1px);}
+.ew-btn:active{transform:scale(.96);}
+.ew-logo{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;}
+.ew-info{display:flex;flex-direction:column;gap:1px;}
+.ew-name{font-size:12.5px;font-weight:700;color:var(--g900);line-height:1.2;}
+.ew-sub{font-size:10.5px;color:var(--g500);}
+.ew-dana{border-color:#dce8fd;background:#f5f8ff;}.ew-dana:hover{border-color:#1a73e8;}
+.ew-gopay{border-color:#c8f0d4;background:#f2fdf5;}.ew-gopay:hover{border-color:#00880a;}
+.ew-ovo{border-color:#e0d5f7;background:#f9f7ff;}.ew-ovo:hover{border-color:#4c3096;}
+.ew-spay{border-color:#ffd9cc;background:#fff7f5;}.ew-spay:hover{border-color:#ee4d2d;}
+.ew-bca{border-color:#dce8fd;background:#f5f8ff;}.ew-bca:hover{border-color:#0057ab;}
+.ew-qris{border-color:var(--blue-100);background:var(--blue-50);}.ew-qris:hover{border-color:var(--blue);}
+
+/* LOADING PAGE */
+.pg-load{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:60vh;color:var(--g400);}
+.pg-load p{font-size:13px;}
+
+/* TOAST */
+#toast-box{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:9999;pointer-events:none;width:calc(100% - 32px);max-width:380px;}
+.toast{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--white);border-radius:var(--r-md);font-size:13px;font-weight:600;box-shadow:var(--sh-lg);animation:tIn .3s cubic-bezier(.34,1.3,.64,1) both;}
+.toast.out{animation:tOut .22s ease both;}
+.t-ok{border-left:4px solid var(--green);color:var(--green);}
+.t-err{border-left:4px solid var(--red);color:var(--red);}
+.t-info{border-left:4px solid var(--blue);color:var(--blue);}
+@keyframes tIn{from{opacity:0;transform:translateY(-10px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes tOut{from{opacity:1}to{opacity:0;transform:translateY(-8px)}}
+
+/* SPINNER */
+.spin{width:16px;height:16px;border:2.5px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:rot .6s linear infinite;flex-shrink:0;}
+.spin.r{border-color:rgba(220,38,38,.2);border-top-color:var(--red);}
+.spin.b{border-color:rgba(37,99,235,.15);border-top-color:var(--blue);}
+.spin.g{border-color:rgba(0,0,0,.1);border-top-color:var(--g500);}
+@keyframes rot{to{transform:rotate(360deg)}}
+
+.hidden{display:none !important;}
+.mt-8{margin-top:8px;}.mt-12{margin-top:12px;}.mt-16{margin-top:16px;}
+.fc{display:flex;flex-direction:column;}
+.g8{gap:8px;}.g12{gap:12px;}
+</style>
+
+</head>  
+<body>  
+<div id="toast-box"></div>  <!-- CANCEL MODAL -->  <div id="modal-bg" class="modal-bg hidden" onclick="modalBgClick(event)">  
+  <div class="modal">  
+    <div class="modal-icon"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></div>  
+    <div class="modal-title">Batalkan Transaksi?</div>  
+    <div class="modal-desc">QR Code akan tidak valid. Pastikan Anda belum melakukan pembayaran sebelum membatalkan.</div>  
+    <div class="modal-btns">  
+      <button class="btn btn-red" onclick="confirmCancel()">  
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>  
+        Ya, Batalkan  
+      </button>  
+      <button class="btn btn-outline" onclick="closeModal()">Lanjut Bayar</button>  
+    </div>  
+  </div>  
+</div>  <div id="app">    <!-- PAGE: LANDING PUBLIC (sebelum login) -->
+  <div id="pg-intro" class="page">
+    <div class="brand">
+      <div class="brand-row">
+        <div class="brand-icon"><svg viewBox="0 0 24 24"><path d="M3 3h7v7H3V3zm1 1v5h5V4H4zm1 1h3v3H5V5zM14 3h7v7h-7V3zm1 1v5h5V4h-5zm1 1h3v3h-3V5zM3 14h7v7H3v-7zm1 1v5h5v-5H4zm1 1h3v3H5v-3zM14 14h2v2h-2v-2zm3 0h2v2h-2v-2zM14 17h2v2h-2v-2zm3 0h2v2h-2v-2z"/></svg></div>
+        <span class="brand-name">QRIS<span>Pay</span></span>
+      </div>
+      <p class="brand-tag">Pembayaran digital cepat &amp; aman</p>
+    </div>
+
+    <div class="card">
+      <div class="lp-hero">
+        <div class="lp-badge"><span></span> Platform Aktif &amp; Aman</div>
+        <div class="lp-title">Bayar Lebih <em>Mudah</em><br/>dengan QRIS</div>
+        <div class="lp-desc">Solusi pembayaran digital instan menggunakan QR Code. Cukup scan, konfirmasi, selesai — tanpa ribet.</div>
+      </div>
+
+      <!-- Stats -->
+      <div class="lp-stats" style="margin-bottom:16px;">
+        <div class="lp-stat">
+          <div class="lp-stat-num">5 dtk</div>
+          <div class="lp-stat-lbl">Proses QR</div>
+        </div>
+        <div class="lp-stat">
+          <div class="lp-stat-num">100%</div>
+          <div class="lp-stat-lbl">Real-time</div>
+        </div>
+        <div class="lp-stat">
+          <div class="lp-stat-num">24/7</div>
+          <div class="lp-stat-lbl">Tersedia</div>
+        </div>
+      </div>
+
+      <!-- Features -->
+      <div class="lp-features" style="margin-bottom:20px;">
+        <div class="lp-feat">
+          <div class="lp-feat-icon">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          </div>
+          <div class="lp-feat-txt">
+            <strong>Generate QR Instan</strong>
+            <span>Buat QR Code pembayaran dalam hitungan detik, langsung bisa discan dari semua e-wallet &amp; m-banking.</span>
+          </div>
+        </div>
+        <div class="lp-feat">
+          <div class="lp-feat-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
+          </div>
+          <div class="lp-feat-txt">
+            <strong>Status Real-time</strong>
+            <span>Cek status pembayaran otomatis setiap beberapa detik — tidak perlu refresh manual.</span>
+          </div>
+        </div>
+        <div class="lp-feat">
+          <div class="lp-feat-icon">
+            <svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div class="lp-feat-txt">
+            <strong>Riwayat per Akun</strong>
+            <span>Setiap transaksi tersimpan di akun Anda. Login dari perangkat manapun, history tetap ada.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Trust indicators -->
+      <div class="lp-trust" style="margin-bottom:16px;">
+        <div class="lp-trust-item">
+          <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+          Gratis
+        </div>
+        <div class="lp-trust-item">
+          <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+          Aman
+        </div>
+        <div class="lp-trust-item">
+          <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+          Tanpa Iklan
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <button class="btn-get-started" onclick="goPage('pg-login')">
+        Mulai Sekarang
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>
+      <div style="text-align:center;margin-top:10px;font-size:12px;color:var(--g400);">
+        Sudah punya akun? <button onclick="goPage('pg-login')" style="border:none;background:none;color:var(--blue);font-weight:600;font-size:12px;cursor:pointer;padding:0;">Masuk di sini</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE: LOADING -->    <div id="pg-loading" class="page active">  
+    <div class="pg-load">  
+      <div class="spin g" style="width:28px;height:28px;border-width:3px;"></div>  
+      <p>Memuat…</p>  
+    </div>  
+  </div>    <!-- PAGE: LOGIN/REGISTER -->    <div id="pg-login" class="page">  
+    <div class="brand">  
+      <div class="brand-row">  
+        <div class="brand-icon"><svg viewBox="0 0 24 24"><path d="M3 3h7v7H3V3zm1 1v5h5V4H4zm1 1h3v3H5V5zM14 3h7v7h-7V3zm1 1v5h5V4h-5zm1 1h3v3h-3V5zM3 14h7v7H3v-7zm1 1v5h5v-5H4zm1 1h3v3H5v-3zM14 14h2v2h-2v-2zm3 0h2v2h-2v-2zM14 17h2v2h-2v-2zm3 0h2v2h-2v-2z"/></svg></div>  
+        <span class="brand-name">QRIS<span>Pay</span></span>  
+      </div>  
+      <p class="brand-tag">Pembayaran digital cepat &amp; aman</p>  
+    </div>  <div class="card fc g12">  
+  <div style="text-align:center;padding:4px 0 8px;">  
+    <div style="font-size:20px;font-weight:800;color:var(--g900);margin-bottom:4px;">Selamat Datang 👋</div>  
+    <div style="font-size:13px;color:var(--g500);">Login atau daftar untuk mulai</div>  
+  </div>  
+
+  <!-- Tab Login / Register -->  
+  <div class="auth-tabs">  
+    <button class="auth-tab on" id="tab-login" onclick="switchTab('login')">Masuk</button>  
+    <button class="auth-tab" id="tab-reg" onclick="switchTab('register')">Daftar</button>  
+  </div>  
+
+  <!-- Error box -->  
+  <div id="auth-err" class="auth-err hidden"></div>  
+
+  <!-- Verify box (setelah register) -->  
+  <div id="verify-box" class="hidden">  
+    <div style="text-align:center;padding:12px 0 8px;">
+      <div style="font-size:40px;margin-bottom:10px;">📧</div>
+      <div style="font-size:17px;font-weight:800;color:var(--g900);margin-bottom:8px;">Cek Email Kamu!</div>
+      <div style="font-size:13px;color:var(--g500);line-height:1.7;">Link konfirmasi dikirim ke:<br/><strong id="verify-email" style="color:var(--blue);"></strong></div>
+    </div>
+    <div style="background:var(--blue-50);border:1px solid var(--blue-100);border-radius:var(--r-md);padding:14px;margin:14px 0;display:flex;flex-direction:column;gap:10px;">
+      <div style="font-size:12px;font-weight:700;color:var(--blue);">Langkah selanjutnya:</div>
+      <div style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:var(--g700);">
+        <span style="background:var(--blue);color:white;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;margin-top:1px;">1</span>
+        Buka email dari <strong>Supabase</strong> di inbox kamu
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:var(--g700);">
+        <span style="background:var(--blue);color:white;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;margin-top:1px;">2</span>
+        Klik tombol <strong>"Confirm your email"</strong>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:var(--g700);">
+        <span style="background:var(--blue);color:white;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;margin-top:1px;">3</span>
+        Kembali ke sini dan <strong>Login</strong> pakai email &amp; password
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--g400);text-align:center;margin-bottom:12px;">Tidak ada email? Cek folder <strong>Spam</strong> atau tunggu 1-2 menit.</div>
+    <button class="btn btn-blue" onclick="switchTab('login')">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
+      Lanjut ke Login
+    </button>
+  </div>  
+
+  <!-- Form Login -->  
+  <div id="form-login" class="fc g12">  
+    <div class="field">  
+      <label class="f-label">Email</label>  
+      <input class="auth-input" id="li-email" type="email" placeholder="nama@email.com" autocomplete="email"/>  
+    </div>  
+    <div class="field">  
+      <label class="f-label">Password</label>  
+      <div class="input-rel">  
+        <input class="auth-input" id="li-pass" type="password" placeholder="Password kamu" autocomplete="current-password"/>  
+        <button class="eye-btn" onclick="toggleEye('li-pass',this)" tabindex="-1">  
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" id="eye-li"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>  
+        </button>  
+      </div>  
+    </div>  
+    <button class="btn btn-blue" id="btn-login" onclick="doLogin()">  
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>  
+      Masuk  
+    </button>  
+    <div class="or-sep"><span>atau</span></div>  
+    <button class="btn-google" id="btn-google" onclick="loginGoogle()">  
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G"/>  
+      Masuk dengan Google  
+    </button>  
+  </div>  
+
+  <!-- Form Register -->  
+  <div id="form-reg" class="fc g12 hidden">  
+    <div class="field">  
+      <label class="f-label">Nama Lengkap</label>  
+      <input class="auth-input" id="reg-name" type="text" placeholder="Nama kamu" autocomplete="name"/>  
+    </div>  
+    <div class="field">  
+      <label class="f-label">Email</label>  
+      <input class="auth-input" id="reg-email" type="email" placeholder="nama@email.com" autocomplete="email"/>  
+    </div>  
+    <div class="field">  
+      <label class="f-label">Password</label>  
+      <div class="input-rel">  
+        <input class="auth-input" id="reg-pass" type="password" placeholder="Min. 6 karakter" autocomplete="new-password"/>  
+        <button class="eye-btn" onclick="toggleEye('reg-pass',this)" tabindex="-1">  
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>  
+        </button>  
+      </div>  
+      <span class="f-hint">Minimal 6 karakter</span>  
+    </div>  
+    <button class="btn btn-blue" id="btn-reg" onclick="doRegister()">  
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8zM19 8v6M22 11h-6"/></svg>  
+      Buat Akun  
+    </button>  
+    <div class="or-sep"><span>atau</span></div>  
+    <button class="btn-google" onclick="loginGoogle()">  
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G"/>  
+      Daftar dengan Google  
+    </button>  
+  </div>  
+</div>
+
+  </div>    <!-- PAGE: LANDING -->    <div id="pg-landing" class="page">  
+    <div class="brand">  
+      <div class="brand-row">  
+        <div class="brand-icon"><svg viewBox="0 0 24 24"><path d="M3 3h7v7H3V3zm1 1v5h5V4H4zm1 1h3v3H5V5zM14 3h7v7h-7V3zm1 1v5h5V4h-5zm1 1h3v3h-3V5zM3 14h7v7H3v-7zm1 1v5h5v-5H4zm1 1h3v3H5v-3zM14 14h2v2h-2v-2zm3 0h2v2h-2v-2zM14 17h2v2h-2v-2zm3 0h2v2h-2v-2z"/></svg></div>  
+        <span class="brand-name">QRIS<span>Pay</span></span>  
+      </div>  
+    </div>  
+    <div class="user-header">  
+      <div class="user-info">  
+        <div class="user-av" id="user-av">?</div>  
+        <div>  
+          <div class="user-name" id="user-name">—</div>  
+          <div class="user-email" id="user-email">—</div>  
+        </div>  
+      </div>  
+      <button class="btn-logout" onclick="doLogout()">  
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>  
+        Keluar  
+      </button>  
+    </div>  
+    <div class="card">  
+      <div class="card-title">  
+        <div class="t-icon"><svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><rect x="3" y="3" width="18" height="18" rx="3"/></svg></div>  
+        Cara Pembayaran  
+      </div>  
+      <div class="feat-list">  
+        <div class="feat-item"><div class="feat-num">1</div><div class="feat-txt"><strong>Masukkan Nominal</strong><span>Pilih atau ketik jumlah top up</span></div></div>  
+        <div class="feat-item"><div class="feat-num">2</div><div class="feat-txt"><strong>Scan QR Code</strong><span>Buka m-banking atau e-wallet</span></div></div>  
+        <div class="feat-item"><div class="feat-num">3</div><div class="feat-txt"><strong>Selesai Otomatis</strong><span>Status diperbarui secara realtime</span></div></div>  
+      </div>  
+      <hr class="sep mt-16"/>  
+      <div class="btn-stack mt-12">  
+        <button class="btn btn-blue" onclick="goPage('pg-form')">  
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>  
+          Mulai Pembayaran  
+        </button>  
+        <button class="btn btn-outline" onclick="openHistory()">  
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>  
+          Riwayat Transaksi  
+        </button>  
+      </div>  
+    </div>  
+  </div>    <!-- PAGE: FORM -->    <div id="pg-form" class="page">  
+    <div class="brand">  
+      <div class="brand-row">  
+        <div class="brand-icon"><svg viewBox="0 0 24 24"><path d="M3 3h7v7H3V3zm1 1v5h5V4H4zm1 1h3v3H5V5zM14 3h7v7h-7V3zm1 1v5h5V4h-5zm1 1h3v3h-3V5zM3 14h7v7H3v-7zm1 1v5h5v-5H4zm1 1h3v3H5v-3zM14 14h2v2h-2v-2zm3 0h2v2h-2v-2zM14 17h2v2h-2v-2zm3 0h2v2h-2v-2z"/></svg></div>  
+        <span class="brand-name">QRIS<span>Pay</span></span>  
+      </div>  
+    </div>
+    <!-- User header di halaman form -->
+    <div class="user-header">
+      <div class="user-info">
+        <div class="user-av" id="user-av-form">?</div>
+        <div>
+          <div class="user-name" id="user-name-form">—</div>
+          <div class="user-email" id="user-email-form">—</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button class="btn-logout" onclick="openHistory()" style="color:var(--blue);border-color:var(--blue-100);background:var(--blue-50);">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
+          Riwayat
+        </button>
+        <button class="btn-logout" onclick="doLogout()">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          Keluar
+        </button>
+      </div>
+    </div>
+    <div class="card fc g12">  
+      <div class="card-title">  
+        <div class="t-icon"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 15h4"/></svg></div>  
+        Nominal Top Up  
+      </div>  
+      <div class="field">  
+        <label class="f-label">Jumlah Pembayaran</label>  
+        <div class="input-wrap">  
+          <span class="input-pfx">Rp</span>  
+          <input id="inp-nominal" type="number" min="1000" placeholder="Masukkan nominal…" oninput="syncChips()"/>  
+        </div>  
+        <span class="f-hint">Minimal Rp 1.000 · Hanya angka</span>  
+      </div>  
+      <div>  
+        <div class="chip-lbl">Pilihan Cepat</div>  
+        <div class="chips">  
+          <button class="chip" onclick="pickChip(5000,this)">Rp 5K</button>  
+          <button class="chip" onclick="pickChip(10000,this)">Rp 10K</button>  
+          <button class="chip" onclick="pickChip(25000,this)">Rp 25K</button>  
+          <button class="chip" onclick="pickChip(50000,this)">Rp 50K</button>  
+          <button class="chip" onclick="pickChip(100000,this)">Rp 100K</button>  
+          <button class="chip" onclick="pickChip(200000,this)">Rp 200K</button>  
+        </div>  
+      </div>  
+      <hr class="sep"/>  
+      <div class="btn-stack">  
+        <button id="btn-generate" class="btn btn-blue" onclick="doGenerate()">  
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>  
+          Buat QRIS  
+        </button>  
+      </div>  
+    </div>  
+  </div>    <!-- PAGE: QR -->    <div id="pg-qr" class="page">  
+    <div class="card">  
+      <div class="card-title">  
+        <div class="t-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg></div>  
+        Detail Transaksi  
+      </div>  
+      <div class="info-table">  
+        <div class="info-row"><span class="info-key">ID Transaksi</span><span class="info-val mono" id="inf-id">—</span></div>  
+        <div class="info-row"><span class="info-key">Tanggal</span><span class="info-val" id="inf-date">—</span></div>  
+        <div class="info-row"><span class="info-key">Nominal</span><span class="info-val" id="inf-nominal">—</span></div>  
+        <div class="info-row"><span class="info-key">Biaya Admin</span><span class="info-val" id="inf-fee">—</span></div>  
+        <div class="info-row"><span class="info-key">Total Bayar</span><span class="info-val blue" id="inf-total">—</span></div>  
+      </div>  
+    </div>  
+    <div class="card fc g12">  
+      <div class="card-title">  
+        <div class="t-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>  
+        Scan QR Code  
+      </div>  
+      <div id="qr-loading" class="qr-area"><div class="qr-skel"></div><span class="qr-note">Menyiapkan QR Code…</span></div>  
+      <div id="qr-ready" class="hidden fc g12">  
+        <div class="qr-area"><div class="qr-frame"><div id="qrcode"></div></div><span class="qr-note">Scan dengan m-banking atau e-wallet</span></div>  
+        <div class="badge-wrap"><div id="badge" class="badge b-pending"><span class="dot"></span><span>Menunggu Pembayaran</span></div></div>  
+        <div class="timer" id="timer-row">  
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>  
+          <span>Berlaku selama</span><span id="timer-val" class="timer-val">05:00</span>  
+        </div>  
+        <div id="notif-area"></div>  
+        <div id="expired-banner" class="hidden expired-banner">  
+          <div class="expired-icon">⏰</div>  
+          <div class="expired-txt"><strong>Transaksi Kedaluwarsa</strong><span>QR tidak valid. Buat transaksi baru.</span></div>  
+        </div>
+
+        <!-- BAYAR LANGSUNG VIA APP -->
+        <div class="ew-section" id="ew-section">
+          <div class="ew-label">Bayar Langsung via App</div>
+          <div class="ew-grid">
+            <button class="ew-btn ew-dana" onclick="openEwallet('dana')">
+              <div class="ew-logo" style="background:#1a73e8;">
+                <svg width="20" height="20" viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="8" fill="#1a73e8"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" fill="white" font-size="11" font-weight="800" font-family="Arial">DANA</text></svg>
+              </div>
+              <div class="ew-info">
+                <div class="ew-name">Dana</div>
+                <div class="ew-sub">Buka app Dana</div>
+              </div>
+            </button>
+            <button class="ew-btn ew-gopay" onclick="openEwallet('gopay')">
+              <div class="ew-logo" style="background:#00880a;">
+                <svg width="20" height="20" viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="8" fill="#00880a"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" fill="white" font-size="9" font-weight="800" font-family="Arial">GO PAY</text></svg>
+              </div>
+              <div class="ew-info">
+                <div class="ew-name">GoPay</div>
+                <div class="ew-sub">Buka app Gojek</div>
+              </div>
+            </button>
+            <button class="ew-btn ew-ovo" onclick="openEwallet('ovo')">
+              <div class="ew-logo" style="background:#4c3096;">
+                <svg width="20" height="20" viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="8" fill="#4c3096"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" fill="white" font-size="12" font-weight="800" font-family="Arial">OVO</text></svg>
+              </div>
+              <div class="ew-info">
+                <div class="ew-name">OVO</div>
+                <div class="ew-sub">Buka app OVO</div>
+              </div>
+            </button>
+            <button class="ew-btn ew-spay" onclick="openEwallet('shopee')">
+              <div class="ew-logo" style="background:#ee4d2d;">
+                <svg width="20" height="20" viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="8" fill="#ee4d2d"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" fill="white" font-size="7.5" font-weight="800" font-family="Arial">SHOPEE</text></svg>
+              </div>
+              <div class="ew-info">
+                <div class="ew-name">ShopeePay</div>
+                <div class="ew-sub">Buka app Shopee</div>
+              </div>
+            </button>
+          </div>
+          <div style="font-size:11px;color:var(--g400);text-align:center;padding:2px 0 4px;">Klik → app terbuka → scan QR di layar ini</div>
+        </div>
+
+        <div class="cek-box" id="cek-box">  
+          <div class="cek-txt"><strong>Cek Status Manual</strong><span>Tekan jika sudah melakukan pembayaran</span></div>  
+          <button id="btn-cek" class="btn-cek" onclick="doCheckManual()">  
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>  
+            Cek Sekarang  
+          </button>  
+        </div>  
+        <hr class="sep"/>  
+        <div class="btn-stack">  
+          <button id="btn-cancel" class="btn btn-red" onclick="openModal()">  
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>  
+            Batalkan Transaksi  
+          </button>  
+          <button id="btn-new-trx" class="btn btn-blue hidden" onclick="doNewTrx()">  
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>  
+            Transaksi Baru  
+          </button>  
+        </div>  
+      </div>  
+    </div>  
+  </div>    <!-- PAGE: SUCCESS -->    <div id="pg-success" class="page">  
+    <div class="brand">  
+      <div class="brand-row">  
+        <div class="brand-icon"><svg viewBox="0 0 24 24"><path d="M3 3h7v7H3V3zm1 1v5h5V4H4zm1 1h3v3H5V5zM14 3h7v7h-7V3zm1 1v5h5V4h-5zm1 1h3v3h-3V5zM3 14h7v7H3v-7zm1 1v5h5v-5H4zm1 1h3v3H5v-3zM14 14h2v2h-2v-2zm3 0h2v2h-2v-2zM14 17h2v2h-2v-2zm3 0h2v2h-2v-2z"/></svg></div>  
+        <span class="brand-name">QRIS<span>Pay</span></span>  
+      </div>  
+    </div>  
+    <div class="card">  
+      <div class="success-hero">  
+        <div class="success-ring"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></div>  
+        <div class="success-h">Pembayaran Berhasil!</div>  
+        <div class="success-s">Transaksi Anda telah dikonfirmasi</div>  
+      </div>  
+      <div class="card-title" style="margin-bottom:12px">  
+        <div class="t-icon"><svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><rect x="3" y="3" width="18" height="18" rx="3"/></svg></div>  
+        Rincian Pembayaran  
+      </div>  
+      <div class="info-table" id="success-detail"></div>  
+      <div class="btn-stack mt-16">  
+        <button class="btn btn-blue" onclick="doNewTrx()">  
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>  
+          Transaksi Baru  
+        </button>  
+        <button class="btn btn-outline" onclick="openHistory()">  
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>  
+          Lihat Riwayat  
+        </button>  
+      </div>  
+    </div>  
+  </div>    <!-- PAGE: HISTORY -->    <div id="pg-history" class="page">  
+    <div class="brand">  
+      <div class="brand-row">  
+        <div class="brand-icon"><svg viewBox="0 0 24 24"><path d="M3 3h7v7H3V3zm1 1v5h5V4H4zm1 1h3v3H5V5zM14 3h7v7h-7V3zm1 1v5h5V4h-5zm1 1h3v3h-3V5zM3 14h7v7H3v-7zm1 1v5h5v-5H4zm1 1h3v3H5v-3zM14 14h2v2h-2v-2zm3 0h2v2h-2v-2zM14 17h2v2h-2v-2zm3 0h2v2h-2v-2z"/></svg></div>  
+        <span class="brand-name">QRIS<span>Pay</span></span>  
+      </div>  
+    </div>  
+    <div class="card">  
+      <div class="card-title">  
+        <div class="t-icon"><svg viewBox="0 0 24 24"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg></div>  
+        Riwayat Transaksi  
+      </div>  
+      <div class="hist-filter">  
+        <button class="on" onclick="setFilter('all',this)">Semua</button>  
+        <button onclick="setFilter('success',this)">Berhasil</button>  
+        <button onclick="setFilter('pending',this)">Pending</button>  
+        <button onclick="setFilter('canceled',this)">Dibatalkan</button>  
+      </div>  
+      <div id="hist-content">  
+        <div class="hist-empty"><svg class="hist-empty-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg><p>Memuat…</p></div>  
+      </div>  
+      <button class="btn btn-outline mt-12" onclick="goPage('pg-landing')">  
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>  
+        Kembali  
+      </button>  
+    </div>  
+  </div>  </div>  <script>  
+// ============================================================  
+// KEY DIAMBIL DARI /api/config — TIDAK hardcode di HTML  
+// ============================================================      } else if(msg.includes("Password should be")) {
+         const API = {
+  topup:  "/api/topup",
+  status: "/api/check-status",
+  cancel: "/api/cancel",
+  auth: {
+    login:    "/api/auth/login",
+    register: "/api/auth/register",
+    logout:   "/api/auth/logout",
+    me:       "/api/auth/me",
+    refresh:  "/api/auth/refresh",
+    google:   "/api/auth/google",
+  }
+};
+
+// Token management (localStorage)
+const LS_TOKEN    = "qrispay_token";
+const LS_REFRESH  = "qrispay_refresh";
+function getToken()    { return localStorage.getItem(LS_TOKEN); }
+function setToken(t)   { localStorage.setItem(LS_TOKEN, t); }
+function removeToken() { localStorage.removeItem(LS_TOKEN); localStorage.removeItem(LS_REFRESH); }
+function authHeader()  { const t=getToken(); return t?{"Authorization":`Bearer ${t}`}:{}; }
+
+// ============================================================
+// HANDLE GOOGLE OAUTH CALLBACK
+// Supabase implicit flow: token ada di URL hash #access_token=...
+// ============================================================
+(function handleOAuthCallback() {
+  // -- Cek implicit flow (hash) --
+  const hash = window.location.hash.substring(1);
+  if (hash && hash.includes("access_token")) {
+    const params        = new URLSearchParams(hash);
+    const access_token  = params.get("access_token");
+    const refresh_token = params.get("refresh_token");
+    if (access_token)  localStorage.setItem(LS_TOKEN,   access_token);
+    if (refresh_token) localStorage.setItem(LS_REFRESH, refresh_token);
+    // Bersihkan URL hash tanpa reload
+    window.history.replaceState({}, document.title, window.location.pathname);
+    return; // DOMContentLoaded akan verifikasi token dan navigasi
+  }
+
+  // -- Cek PKCE flow (query string ?code=...) --
+  const urlParams = new URLSearchParams(window.location.search);
+  const code = urlParams.get("code");
+  if (code) {
+    sessionStorage.setItem("oauth_code", code);
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+})();
+    
+// Session storage (QR persist saat refresh)
+const SS_KEY = "qrispay_trx";
+function saveSession(){
+  if(!S.trxId)return;
+  sessionStorage.setItem(SS_KEY,JSON.stringify({
+    trxId:S.trxId,amount:S.amount,fee:S.fee,total:S.total,
+    date:S.date,qrString:S.qrString,secsLeft:S.secsLeft,savedAt:Date.now()
+  }));
+}
+function loadSession(){
+  try{
+    const d=JSON.parse(sessionStorage.getItem(SS_KEY)||"null");
+    if(!d)return false;
+    const left=d.secsLeft-Math.floor((Date.now()-d.savedAt)/1000);
+    if(left<=0){sessionStorage.removeItem(SS_KEY);return false;}
+    S.trxId=d.trxId;S.amount=d.amount;S.fee=d.fee;S.total=d.total;
+    S.date=d.date;S.qrString=d.qrString;S.secsLeft=left;S.done=false;
+    return true;
+  }catch(_){return false;}
+}
+function clearSession(){sessionStorage.removeItem(SS_KEY);}
+
+// State
+let currentUser=null;
+let histFilter="all",histPage=1,histHasMore=false;
+let S={trxId:null,amount:0,fee:0,total:0,date:null,qrString:null,checkTimer:null,expireTimer:null,countdown:null,secsLeft:300,done:false};
+
+// Auth tabs
+function switchTab(tab){
+  const isLogin=tab==="login";
+  document.getElementById("tab-login").classList.toggle("on",isLogin);
+  document.getElementById("tab-reg").classList.toggle("on",!isLogin);
+  document.getElementById("form-login").classList.toggle("hidden",!isLogin);
+  document.getElementById("form-reg").classList.toggle("hidden",isLogin);
+  document.getElementById("verify-box").classList.add("hidden");
+  document.getElementById("auth-err").classList.add("hidden");
+}
+function showAuthErr(msg){const el=document.getElementById("auth-err");el.textContent=msg;el.classList.remove("hidden");}
+function toggleEye(inputId,btn){
+  const inp=document.getElementById(inputId);
+  const show=inp.type==="password";
+  inp.type=show?"text":"password";
+  btn.innerHTML=show
+    ?`<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24M1 1l22 22"/></svg>`
+    :`<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+}
+
+// LOGIN
+async function doLogin(){
+  const email=document.getElementById("li-email").value.trim();
+  const pass=document.getElementById("li-pass").value;
+  if(!email||!pass)return showAuthErr("Email dan password wajib diisi.");
+  const btn=document.getElementById("btn-login");
+  btn.disabled=true;btn.innerHTML=`<div class="spin"></div> Masuk…`;
+  document.getElementById("auth-err").classList.add("hidden");
+  try{
+    const res=await fetch(API.auth.login,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password:pass})});
+    const json=await res.json();
+    if(json.status!==200){
+      showAuthErr(json.message||"Login gagal.");
+      btn.disabled=false;
+      btn.innerHTML=`<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>Masuk`;
+      return;
+    }
+    setToken(json.session.access_token);
+    localStorage.setItem(LS_REFRESH,json.session.refresh_token);
+    applyUser(json.user);
+    if(loadSession()&&S.qrString&&S.trxId){
+      resetQrPage();renderDetail();renderQR();goPage("pg-qr");
+      startCountdown(S.secsLeft);
+      S.expireTimer=setTimeout(()=>triggerExpired(),S.secsLeft*1000);
+      S.checkTimer=setInterval(()=>autoCheck(),5000);
+      toast("🔄 Sesi pembayaran dipulihkan","info");
+    }else{goPage("pg-form");}
+  }catch(err){
+    showAuthErr("Terjadi kesalahan. Coba lagi.");
+    btn.disabled=false;
+    btn.innerHTML=`<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>Masuk`;
+  }
+}
+
+// REGISTER
+async function doRegister(){
+  const name=document.getElementById("reg-name").value.trim();
+  const email=document.getElementById("reg-email").value.trim();
+  const pass=document.getElementById("reg-pass").value;
+  if(!name)return showAuthErr("Nama lengkap wajib diisi.");
+  if(!email)return showAuthErr("Email wajib diisi.");
+  if(!email.includes("@"))return showAuthErr("Format email tidak valid.");
+  if(!pass)return showAuthErr("Password wajib diisi.");
+  if(pass.length<6)return showAuthErr("Password minimal 6 karakter.");
+  const btn=document.getElementById("btn-reg");
+  btn.disabled=true;btn.innerHTML=`<div class="spin"></div> Mendaftar…`;
+  document.getElementById("auth-err").classList.add("hidden");
+  try{
+    const res=await fetch(API.auth.register,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password:pass,name})});
+    const json=await res.json();
+    if(json.status!==200){showAuthErr(json.message||"Registrasi gagal.");return;}
+    if(json.needVerify){
+      document.getElementById("verify-email").textContent=email;
+      document.getElementById("form-reg").classList.add("hidden");
+      document.getElementById("verify-box").classList.remove("hidden");
+      document.getElementById("tab-reg").classList.remove("on");
+      document.getElementById("tab-login").classList.add("on");
+    }else{
+      setToken(json.session.access_token);
+      localStorage.setItem(LS_REFRESH,json.session.refresh_token);
+      applyUser(json.user);
+      toast("✅ Akun berhasil dibuat!","ok");
+      goPage("pg-form");
+    }
+  }catch(err){showAuthErr("Terjadi kesalahan. Coba lagi.");}
+  finally{
+    btn.disabled=false;
+    btn.innerHTML=`<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8zM19 8v6M22 11h-6"/></svg>Buat Akun`;
+  }
+}
+
+// GOOGLE LOGIN — pakai Supabase JS langsung di frontend
+// Lebih reliable karena handle PKCE/implicit flow otomatis
+async function loginGoogle(){
+  const btn=event.currentTarget;
+  btn.disabled=true;btn.innerHTML=`<div class="spin b"></div> Mengarahkan…`;
+  try{
+    // Ambil URL dari server (server generate URL tanpa perlu SDK di client)
+    const res  = await fetch(API.auth.google);
+    const json = await res.json();
+    if(json.status===200 && json.url){
+      // Redirect langsung ke Google via URL dari server
+      window.location.href = json.url;
+    } else {
+      throw new Error(json.message||"Gagal mendapatkan URL");
+    }
+  }catch(err){
+    toast("⚠️ "+err.message,"err");
+    btn.disabled=false;
+    btn.innerHTML=`<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" alt="G"/> Masuk dengan Google`;
+  }
+}
+
+// LOGOUT
+async function doLogout(){
+  try{await fetch(API.auth.logout,{method:"POST",headers:{...authHeader()}});}catch(_){}
+  removeToken();currentUser=null;clearSession();stopTimers();S.trxId=null;
+  toast("👋 Berhasil keluar","info");goPage("pg-intro");
+}
+
+// APPLY USER — sync ke semua halaman
+function applyUser(user){
+  currentUser = user;
+  const name  = user.name  || user.email?.split("@")[0] || "User";
+  const email = user.email || "";
+  const photo = user.photo || null;
+  const av    = photo ? `<img src="${photo}" alt="${name}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"/>` : name.charAt(0).toUpperCase();
+
+  // pg-landing
+  const n1 = document.getElementById("user-name");
+  const e1 = document.getElementById("user-email");
+  const a1 = document.getElementById("user-av");
+  if(n1) n1.textContent = name;
+  if(e1) e1.textContent = email;
+  if(a1) a1.innerHTML  = av;
+
+  // pg-form (user header baru)
+  const n2 = document.getElementById("user-name-form");
+  const e2 = document.getElementById("user-email-form");
+  const a2 = document.getElementById("user-av-form");
+  if(n2) n2.textContent = name;
+  if(e2) e2.textContent = email;
+  if(a2) a2.innerHTML  = av;
+}
+
+// HISTORY
+async function fetchHistory(page=1,filter="all",append=false){
+  const el=document.getElementById("hist-content");
+  if(!append)el.innerHTML=`<div class="hist-empty"><svg class="hist-empty-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg><p>Memuat…</p></div>`;
+  try{
+    const res=await fetch(`/api/history?page=${page}&limit=10&filter=${filter}`,{headers:{...authHeader()}});
+    if(!res.ok)throw new Error(`HTTP ${res.status}`);
+    const json=await res.json();
+    histHasMore=json.hasMore||false;
+    const items=json.data||[];
+    if(!append&&items.length===0){el.innerHTML=`<div class="hist-empty"><svg class="hist-empty-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg><p>Belum ada transaksi</p></div>`;return;}
+    const html=items.map(t=>{
+      const bc={SUCCESS:"hb-success",PENDING:"hb-pending",EXPIRED:"hb-expired",CANCELED:"hb-canceled"}[t.status]||"hb-canceled";
+      const bt={SUCCESS:"✓ Berhasil",PENDING:"⏳ Pending",EXPIRED:"⏰ Expired",CANCELED:"✕ Dibatalkan"}[t.status]||t.status;
+      const isOut=["TF_OUT","WD","BUY"].includes(t.type);
+      return `<div class="hist-item"><div style="min-width:0;flex:1"><div class="hist-type">${t.type}</div><div class="hist-id">${t.trxId}</div><div style="font-size:12px;color:var(--g700);font-weight:500;margin-bottom:2px">${t.item||"—"}</div><div class="hist-date">${fmtDate(t.date)}</div></div><div class="hist-right"><div class="hist-total" style="color:${isOut?"var(--red)":"var(--blue)"}">${isOut?"-":""}${rp(t.totalTransfer||t.amount)}</div><div><span class="hist-badge ${bc}">${bt}</span></div></div></div>`;
+    }).join("");
+    if(append){const list=el.querySelector(".hist-list");if(list)list.insertAdjacentHTML("beforeend",html);const lm=el.querySelector(".hist-load-more");if(lm)lm.remove();}
+    else{el.innerHTML=`<div class="hist-list">${html}</div>`;}
+    if(histHasMore)el.insertAdjacentHTML("beforeend",`<button class="hist-load-more mt-8" onclick="loadMore()">Muat lebih banyak…</button>`);
+  }catch(err){el.innerHTML=`<div class="hist-empty"><p style="color:var(--red)">⚠️ Gagal memuat: ${err.message}</p></div>`;}
+}
+function setFilter(f,el){histFilter=f;histPage=1;document.querySelectorAll(".hist-filter button").forEach(b=>b.classList.remove("on"));el.classList.add("on");fetchHistory(1,f,false);}
+function loadMore(){histPage++;fetchHistory(histPage,histFilter,true);}
+function openHistory(){histPage=1;histFilter="all";document.querySelectorAll(".hist-filter button").forEach((b,i)=>b.classList.toggle("on",i===0));goPage("pg-history");fetchHistory(1,"all",false);}
+
+// NAVIGASI
+function goPage(id){document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));document.getElementById(id).classList.add("active");window.scrollTo({top:0,behavior:"smooth"});}
+
+// FORMAT
+function rp(n){return "Rp\u00A0"+Number(n).toLocaleString("id-ID");}
+function fmtDate(d){if(!d)return"—";try{return new Date(d).toLocaleString("id-ID",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});}catch(_){return String(d);}}
+
+// CHIPS
+function pickChip(val,el){document.getElementById("inp-nominal").value=val;document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));el.classList.add("on");}
+function syncChips(){document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));}
+
+// TOAST
+let _tt=null;
+function toast(msg,type="info"){const box=document.getElementById("toast-box");clearTimeout(_tt);box.innerHTML=`<div class="toast t-${type}">${msg}</div>`;_tt=setTimeout(()=>{const el=box.querySelector(".toast");if(el){el.classList.add("out");setTimeout(()=>box.innerHTML="",230);}},3200);}
+
+// NOTIF/BADGE/TIMER
+function showNotif(msg,type="pending"){document.getElementById("notif-area").innerHTML=`<div class="notif n-${type}"><span class="notif-icon">${type==="pending"?"⏳":"⚠️"}</span><div>${msg}</div></div>`;}
+function clearNotif(){document.getElementById("notif-area").innerHTML="";}
+function setBadge(s){const el=document.getElementById("badge");el.className="badge";if(s==="SUCCESS"){el.classList.add("b-success");el.innerHTML="✓&nbsp; Pembayaran Berhasil";}else if(s==="EXPIRED"){el.classList.add("b-expired");el.innerHTML="⏰&nbsp; Kedaluwarsa";}else{el.classList.add("b-pending");el.innerHTML=`<span class="dot"></span><span>Menunggu Pembayaran</span>`;}}
+function startCountdown(secs){S.secsLeft=secs||300;renderTimer();S.countdown=setInterval(()=>{S.secsLeft--;saveSession();renderTimer();if(S.secsLeft<=0)clearInterval(S.countdown);},1000);}
+function renderTimer(){const el=document.getElementById("timer-val");if(!el)return;el.textContent=`${String(Math.floor(S.secsLeft/60)).padStart(2,"0")}:${String(S.secsLeft%60).padStart(2,"0")}`;el.classList.toggle("red",S.secsLeft<60);}
+function stopTimers(){clearInterval(S.checkTimer);clearTimeout(S.expireTimer);clearInterval(S.countdown);S.checkTimer=S.expireTimer=S.countdown=null;}
+
+// RENDER QR
+function renderQR(){document.getElementById("qrcode").innerHTML="";const c=document.createElement("canvas");document.getElementById("qrcode").appendChild(c);new QRious({element:c,value:S.qrString,size:196,foreground:"#1e3a8a",background:"#ffffff",level:"H"});document.getElementById("qr-loading").classList.add("hidden");document.getElementById("qr-ready").classList.remove("hidden");}
+function renderDetail(){document.getElementById("inf-id").textContent=S.trxId;document.getElementById("inf-date").textContent=fmtDate(S.date);document.getElementById("inf-nominal").textContent=rp(S.amount);document.getElementById("inf-fee").textContent=S.fee>0?rp(S.fee):"Gratis";document.getElementById("inf-total").textContent=rp(S.total);}
+
+// RESET QR PAGE
+function resetQrPage(){document.getElementById("qr-loading").classList.remove("hidden");document.getElementById("qr-ready").classList.add("hidden");document.getElementById("qrcode").innerHTML="";clearNotif();setBadge("PENDING");document.getElementById("timer-row").classList.remove("hidden");document.getElementById("expired-banner").classList.add("hidden");document.getElementById("cek-box").classList.remove("hidden");document.getElementById("ew-section").classList.remove("hidden");const bc=document.getElementById("btn-cancel");bc.classList.remove("hidden");bc.disabled=false;bc.innerHTML=`<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Batalkan Transaksi`;document.getElementById("btn-new-trx").classList.add("hidden");}
+
+// MODAL BATAL
+function openModal(){if(!S.trxId||S.done)return;document.getElementById("modal-bg").classList.remove("hidden");}
+function closeModal(){const bg=document.getElementById("modal-bg");bg.classList.add("closing");setTimeout(()=>{bg.classList.add("hidden");bg.classList.remove("closing");},180);}
+function modalBgClick(e){if(e.target===document.getElementById("modal-bg"))closeModal();}
+async function confirmCancel(){
+  closeModal();const id=S.trxId;if(!id)return;
+  stopTimers();S.done=true;
+  const btn=document.getElementById("btn-cancel");
+  if(btn){btn.disabled=true;btn.innerHTML=`<div class="spin r"></div> Membatalkan…`;}
+  try{await fetch(API.cancel,{method:"POST",headers:{"Content-Type":"application/json",...authHeader()},body:JSON.stringify({idTransaksi:id})});}catch(_){}
+  S.trxId=null;S.done=false;clearSession();
+  resetQrPage();document.getElementById("inp-nominal").value="";document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));
+  toast("✅ Transaksi berhasil dibatalkan","ok");
+  goPage("pg-form");
+}
+
+// EXPIRED
+function triggerExpired(){if(S.done)return;S.done=true;clearInterval(S.checkTimer);clearInterval(S.countdown);clearSession();setBadge("EXPIRED");document.getElementById("timer-row").classList.add("hidden");document.getElementById("expired-banner").classList.remove("hidden");document.getElementById("cek-box").classList.add("hidden");document.getElementById("ew-section").classList.add("hidden");document.getElementById("btn-cancel").classList.add("hidden");document.getElementById("btn-new-trx").classList.remove("hidden");toast("⏰ Transaksi kedaluwarsa","err");}
+
+// EWALLET
+function openEwallet(app){
+  if(!S.qrString)return toast("⚠️ QR belum siap","err");
+  const qr=encodeURIComponent(S.qrString);
+  const links={dana:`https://link.dana.id/qr?qrCode=${qr}`,gopay:`https://link.gojek.com/gopay/qrcode?qr=${qr}`,ovo:`ovo://scan?qrCode=${qr}`,shopee:`shopeeid://payment/qr?qrCode=${qr}`};
+  const fallback={dana:"https://play.google.com/store/apps/details?id=id.dana",gopay:"https://play.google.com/store/apps/details?id=com.gojek.app",ovo:"https://play.google.com/store/apps/details?id=ovo.id",shopee:"https://play.google.com/store/apps/details?id=com.shopee.id"};
+  const url=links[app];if(!url)return;
+  const start=Date.now();window.location.href=url;
+  setTimeout(()=>{if(Date.now()-start<2500){if(confirm("App tidak terdeteksi. Buka Play Store?"))window.open(fallback[app],"_blank");}},2000);
+}
+
+// GENERATE QRIS
+async function doGenerate(){
+  if(!currentUser){toast("⚠️ Silakan login terlebih dahulu","err");return;}
+  const nominal=Number(document.getElementById("inp-nominal").value);
+  if(!nominal||nominal<1000)return toast("⚠️ Minimal nominal adalah Rp 1.000","err");
+  const btn=document.getElementById("btn-generate");btn.disabled=true;btn.innerHTML=`<div class="spin"></div> Memproses…`;
+  try{
+    const res=await fetch(API.topup,{method:"POST",headers:{"Content-Type":"application/json",...authHeader()},body:JSON.stringify({nominal})});
+    if(!res.ok)throw new Error(`HTTP ${res.status}`);
+    const json=await res.json();
+    if(json.status!==200)throw new Error(json.message||"Gagal membuat transaksi");
+    const d=json.data;
+    S.trxId=d.trxId||d.id;S.amount=d.amount||d.nominal||nominal;S.fee=d.fee||d.adminFee||d.uniqueCode||0;
+    S.total=d.totalTransfer||d.total||(S.amount+S.fee);S.date=d.createdAt||d.date||new Date().toISOString();
+    S.qrString=d.qr_string||d.qrString||d.qrcode;S.done=false;S.secsLeft=300;
+    if(!S.qrString)throw new Error("QR string tidak diterima dari server");
+    saveSession();resetQrPage();renderDetail();renderQR();goPage("pg-qr");
+    startCountdown(300);
+    S.expireTimer=setTimeout(()=>triggerExpired(),300000);
+    S.checkTimer=setInterval(()=>autoCheck(),5000);
+  }catch(err){toast("⚠️ "+(err.message||"Terjadi kesalahan"),"err");}
+  finally{btn.disabled=false;btn.innerHTML=`<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Buat QRIS`;}
+}
+
+// AUTO & MANUAL CHECK
+async function autoCheck(){if(!S.trxId||S.done)return;try{const res=await fetch(`${API.status}?idTransaksi=${S.trxId}`,{headers:{...authHeader()}});if(!res.ok)return;handleStatus(await res.json(),false);}catch(_){}}
+let _cekCd=false;
+async function doCheckManual(){
+  if(!S.trxId||S.done||_cekCd)return;_cekCd=true;
+  const btn=document.getElementById("btn-cek");btn.disabled=true;btn.innerHTML=`<div class="spin" style="width:12px;height:12px;border-width:2px"></div> Mengecek…`;
+  try{const res=await fetch(`${API.status}?idTransaksi=${S.trxId}`,{headers:{...authHeader()}});if(!res.ok)throw new Error(`HTTP ${res.status}`);handleStatus(await res.json(),true);}
+  catch(err){showNotif("Gagal mengecek: "+err.message,"error");}
+  finally{setTimeout(()=>{_cekCd=false;const b=document.getElementById("btn-cek");if(b&&!S.done){b.disabled=false;b.innerHTML=`<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Cek Sekarang`;}},5000);}
+}
+
+// HANDLE STATUS
+function handleStatus(json,isManual){const s=String(json?.data?.status||"").toUpperCase().trim();if(s==="SUCCESS"){onSuccess();}else if(s==="EXPIRED"||s==="CANCELED"){triggerExpired();}else if(isManual){clearNotif();showNotif(`<strong>Pembayaran belum diterima.</strong><br>Status: <em>${s||"PENDING"}</em>. Tunggu beberapa saat lalu cek kembali.`,"pending");}}
+
+// SUCCESS
+function onSuccess(){
+  if(S.done)return;stopTimers();S.done=true;clearSession();
+  document.getElementById("success-detail").innerHTML=`
+    <div class="info-row"><span class="info-key">ID Transaksi</span><span class="info-val mono">${S.trxId}</span></div>
+    <div class="info-row"><span class="info-key">Tanggal</span><span class="info-val">${fmtDate(S.date)}</span></div>
+    <div class="info-row"><span class="info-key">Nominal</span><span class="info-val">${rp(S.amount)}</span></div>
+    <div class="info-row"><span class="info-key">Biaya Admin</span><span class="info-val">${S.fee>0?rp(S.fee):"Gratis"}</span></div>
+    <div class="info-row"><span class="info-key">Total Dibayar</span><span class="info-val blue">${rp(S.total)}</span></div>`;
+  toast("✅ Pembayaran berhasil diterima!","ok");goPage("pg-success");
+}
+
+// TRANSAKSI BARU
+function doNewTrx(){stopTimers();S.trxId=null;S.done=false;clearSession();resetQrPage();document.getElementById("inp-nominal").value="";document.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));goPage("pg-form");}
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener("DOMContentLoaded", async () => {
+  sessionStorage.removeItem("oauth_done");
+
+  // -- Handle PKCE code exchange --
+  const oauthCode = sessionStorage.getItem("oauth_code");
+  if (oauthCode) {
+    sessionStorage.removeItem("oauth_code");
+    try {
+      const res  = await fetch("/api/auth/callback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: oauthCode })
+      });
+      const json = await res.json();
+      if (json.status === 200) {
+        setToken(json.session.access_token);
+        localStorage.setItem(LS_REFRESH, json.session.refresh_token);
+        applyUser(json.user);
+        goPage("pg-form");
+        return;
+      }
+    } catch(_) {}
+    // Gagal exchange → ke intro
+    goPage("pg-intro");
+    return;
+  }
+
+  // -- Cek token biasa --
+  const token = getToken();
+  if (!token) {
+    goPage("pg-intro");
+    return;
+  }
+
+  try {
+    const res  = await fetch(API.auth.me, { headers: { ...authHeader() } });
+    const json = await res.json();
+
+    if (json.status === 200) {
+      applyUser(json.user);
+      sessionStorage.removeItem("oauth_just_done");
+      if (loadSession() && S.qrString && S.trxId) {
+        resetQrPage();renderDetail();renderQR();goPage("pg-qr");
+        startCountdown(S.secsLeft);
+        S.expireTimer=setTimeout(()=>triggerExpired(),S.secsLeft*1000);
+        S.checkTimer=setInterval(()=>autoCheck(),5000);
+        toast("🔄 Sesi pembayaran dipulihkan","info");
+      } else {
+        goPage("pg-form");
+      }
+      return;
+    }
+
+    // Token expired → coba refresh
+    const rt = localStorage.getItem(LS_REFRESH);
+    if (rt) {
+      const ref = await fetch(API.auth.refresh,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({refresh_token:rt})});
+      const refJson = await ref.json();
+      if (refJson.status === 200) {
+        setToken(refJson.session.access_token);
+        localStorage.setItem(LS_REFRESH, refJson.session.refresh_token);
+        const res2  = await fetch(API.auth.me,{headers:{"Authorization":`Bearer ${refJson.session.access_token}`}});
+        const json2 = await res2.json();
+        if (json2.status === 200) {
+          applyUser(json2.user);
+          goPage("pg-form");
+          return;
+        }
+      }
+    }
+
+    removeToken();
+    goPage("pg-intro");
+
+  } catch(err) {
+    console.error("Init error:", err);
+    goPage("pg-intro");
+  }
+});
+</script>
+</body>
+</html> 
