@@ -1138,15 +1138,18 @@ function doNewTrx(){stopTimers();S.trxId=null;S.done=false;clearSession();resetQ
 
 // ============================================================
 // INIT
+// ============================================================  try {
+    <script>
 // ============================================================
-<script>
-// ... kode kamu yang lain tetap ...
-
-
-  window.addEventListener("DOMContentLoaded", async () => {
+// INIT - VERSI PALING AMAN
+// ============================================================
+window.addEventListener("DOMContentLoaded", async () => {
   console.log("🚀 App init started");
 
-  // Bersihkan dulu
+  // Matikan loading page SEGERA
+  document.getElementById("pg-loading").classList.remove("active");
+
+  // Bersihkan
   sessionStorage.removeItem("oauth_code");
 
   const hash = window.location.hash.substring(1);
@@ -1155,18 +1158,19 @@ function doNewTrx(){stopTimers();S.trxId=null;S.done=false;clearSession();resetQ
 
   const code = params.get("code");
   const error = params.get("error");
+  const errorDesc = params.get("error_description");
 
-  // === 1. HANDLE ERROR DARI SUPABASE ===
   if (error) {
-    console.error("OAuth Error:", params.get("error_description"));
+    console.error("OAuth Error:", errorDesc);
+    toast(`⚠️ ${errorDesc || error}`, "err");
     window.history.replaceState(null, null, "/");
     goPage("pg-intro");
     return;
   }
 
-  // === 2. HANDLE CALLBACK ===
+  // === HANDLE CALLBACK ===
   if (code) {
-    console.log("🔄 Processing OAuth code...");
+    console.log("🔄 Processing OAuth callback...");
     window.history.replaceState(null, null, "/");
 
     try {
@@ -1174,7 +1178,7 @@ function doNewTrx(){stopTimers();S.trxId=null;S.done=false;clearSession();resetQ
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
-        signal: AbortSignal.timeout(10000) // timeout 10 detik
+        signal: AbortSignal.timeout(15000)
       });
 
       const json = await res.json();
@@ -1187,41 +1191,43 @@ function doNewTrx(){stopTimers();S.trxId=null;S.done=false;clearSession();resetQ
         goPage("pg-form");
         return;
       } else {
-        throw new Error(json.message);
+        throw new Error(json.message || "Login gagal");
       }
     } catch (err) {
-      console.error("Callback failed:", err);
-      toast("Gagal login, coba lagi", "err");
+      console.error("Callback error:", err);
+      toast("Gagal memproses login. Coba lagi.", "err");
     }
   }
 
-  // === 3. CEK LOGIN NORMAL DENGAN TIMEOUT ===
+  // === CEK LOGIN BIASA ===
   console.log("🔍 Cek status login...");
-  
   try {
     const token = getToken();
     if (!token) {
-      console.log("No token → Intro");
+      console.log("→ No token, ke intro");
       goPage("pg-intro");
       return;
     }
 
-    // Panggil /me dengan timeout
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    setTimeout(() => controller.abort(), 8000);
 
-    const res = await fetch(API.auth.me, { 
+    const res = await fetch(API.auth.me, {
       headers: { ...authHeader() },
       signal: controller.signal
     });
-    clearTimeout(timeout);
 
     const json = await res.json();
 
     if (json.status === 200) {
       applyUser(json.user);
-      console.log("✅ Sudah login");
-      goPage("pg-form");   // sementara paksa ke form dulu
+      console.log("✅ User sudah login");
+      
+      if (loadSession() && S.qrString && S.trxId) {
+        resetQrPage(); renderDetail(); renderQR(); goPage("pg-qr");
+      } else {
+        goPage("pg-form");
+      }
       return;
     }
   } catch (e) {
@@ -1229,9 +1235,8 @@ function doNewTrx(){stopTimers();S.trxId=null;S.done=false;clearSession();resetQ
   }
 
   // Fallback
-  console.log("Fallback → Intro");
+  console.log("→ Fallback ke intro");
   goPage("pg-intro");
-  }
 });
 </script>
 </body>
