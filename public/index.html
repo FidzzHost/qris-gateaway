@@ -1142,114 +1142,95 @@ function doNewTrx(){stopTimers();S.trxId=null;S.done=false;clearSession();resetQ
 <script>
 // ... kode kamu yang lain tetap ...
 
-window.addEventListener("DOMContentLoaded", async () => {
+
+  window.addEventListener("DOMContentLoaded", async () => {
   console.log("🚀 App init started");
 
-  // Bersihkan flag lama
+  // Bersihkan dulu
   sessionStorage.removeItem("oauth_code");
-  sessionStorage.removeItem("oauth_done");
 
-  // === HANDLE SUPABASE OAUTH CALLBACK ===
   const hash = window.location.hash.substring(1);
   const search = window.location.search.substring(1);
   const params = new URLSearchParams(hash || search);
 
   const code = params.get("code");
   const error = params.get("error");
-  const errorDesc = params.get("error_description");
 
-  // Jika ada error dari Supabase
+  // === 1. HANDLE ERROR DARI SUPABASE ===
   if (error) {
-    console.error("❌ OAuth Error:", error, errorDesc);
-    toast(`⚠️ ${errorDesc || error}`, "err");
-    // Bersihkan URL
-    window.history.replaceState(null, null, window.location.pathname);
+    console.error("OAuth Error:", params.get("error_description"));
+    window.history.replaceState(null, null, "/");
     goPage("pg-intro");
     return;
   }
 
-  // Jika ada code → lakukan exchange
+  // === 2. HANDLE CALLBACK ===
   if (code) {
-    console.log("🔄 Menukar code ke session...");
-
-    // Bersihkan URL segera
-    window.history.replaceState(null, null, window.location.pathname);
+    console.log("🔄 Processing OAuth code...");
+    window.history.replaceState(null, null, "/");
 
     try {
       const res = await fetch("/api/auth/callback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code })
+        body: JSON.stringify({ code }),
+        signal: AbortSignal.timeout(10000) // timeout 10 detik
       });
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
       const json = await res.json();
-      console.log("✅ Callback response:", json);
 
       if (json.status === 200) {
         setToken(json.session.access_token);
-        if (json.session.refresh_token) {
-          localStorage.setItem(LS_REFRESH, json.session.refresh_token);
-        }
+        if (json.session.refresh_token) localStorage.setItem(LS_REFRESH, json.session.refresh_token);
         applyUser(json.user);
-        
         toast("✅ Login berhasil!", "ok");
         goPage("pg-form");
         return;
       } else {
-        throw new Error(json.message || "Login gagal");
+        throw new Error(json.message);
       }
     } catch (err) {
-      console.error("❌ Callback error:", err);
-      toast("⚠️ Gagal memproses login. Silakan coba lagi.", "err");
-      goPage("pg-intro");
-      return;
+      console.error("Callback failed:", err);
+      toast("Gagal login, coba lagi", "err");
     }
   }
 
-  // === CEK LOGIN NORMAL (hanya jika bukan callback) ===
+  // === 3. CEK LOGIN NORMAL DENGAN TIMEOUT ===
   console.log("🔍 Cek status login...");
-  const token = getToken();
-
-  if (!token) {
-    console.log("No token → ke intro");
-    goPage("pg-intro");
-    return;
-  }
-
+  
   try {
+    const token = getToken();
+    if (!token) {
+      console.log("No token → Intro");
+      goPage("pg-intro");
+      return;
+    }
+
+    // Panggil /me dengan timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
     const res = await fetch(API.auth.me, { 
-      headers: { ...authHeader() } 
+      headers: { ...authHeader() },
+      signal: controller.signal
     });
+    clearTimeout(timeout);
+
     const json = await res.json();
 
     if (json.status === 200) {
       applyUser(json.user);
-      console.log("✅ User sudah login");
-
-      if (loadSession() && S.qrString && S.trxId) {
-        resetQrPage(); 
-        renderDetail(); 
-        renderQR(); 
-        goPage("pg-qr");
-      } else {
-        goPage("pg-form");
-      }
+      console.log("✅ Sudah login");
+      goPage("pg-form");   // sementara paksa ke form dulu
       return;
     }
   } catch (e) {
-    console.error("ME error:", e);
+    console.error("ME check error:", e);
   }
 
-  // Coba refresh token
-  const rt = localStorage.getItem(LS_REFRESH);
-  if (rt) {
-    console.log("🔄 Mencoba refresh token...");
-    // refresh logic kamu (biarkan seperti semula)
-  } else {
-    removeToken();
-    goPage("pg-intro");
+  // Fallback
+  console.log("Fallback → Intro");
+  goPage("pg-intro");
   }
 });
 </script>
