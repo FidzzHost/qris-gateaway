@@ -159,16 +159,17 @@ app.get("/api/auth/google", async (req, res) => {
   try {
     const { data, error } = await sb.auth.signInWithOAuth({
       provider: "google",
-      options: { 
-        redirectTo: `${ALLOWED_ORIGIN}/`,   // tambah slash di akhir
-        queryParams: { access_type: 'offline' }
+      options: {
+        redirectTo: "https://www.fidzzonex.web.id/",   // ← HARUS EXACT (dengan www atau tanpa, sesuaikan)
+        // JANGAN tambah query params lain kalau tidak perlu
       }
     });
+
     if (error) return res.status(500).json({ status: 500, message: error.message });
     
-    res.json({ status: 200, url: data.url });
+    return res.json({ status: 200, url: data.url });
   } catch (err) {
-    res.status(500).json({ status: 500, message: err.message });
+    return res.status(500).json({ status: 500, message: err.message });
   }
 });
 
