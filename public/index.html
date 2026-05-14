@@ -1140,70 +1140,88 @@ function doNewTrx(){stopTimers();S.trxId=null;S.done=false;clearSession();resetQ
 // INIT
 // ============================================================
 window.addEventListener("DOMContentLoaded", async () => {
-  // Hapus dulu biar clean
+  console.log("🚀 App init started");
+
+  // Bersihkan dulu
+  sessionStorage.removeItem("oauth_code");
   sessionStorage.removeItem("oauth_done");
 
-  // === HANDLE OAUTH CALLBACK (PKCE) ===
-  const urlParams = new URLSearchParams(window.location.hash.substring(1));
-  const oauthCode = urlParams.get("code") || sessionStorage.getItem("oauth_code");
+  // === HANDLE SUPABASE OAUTH CALLBACK ===
+  const hash = window.location.hash.substring(1);
+  const urlParams = new URLSearchParams(hash);
+  const code = urlParams.get("code") || sessionStorage.getItem("oauth_code");
 
-  if (oauthCode) {
-    sessionStorage.setItem("oauth_code", oauthCode); // backup
-    // Hapus hash dari URL biar clean
-    window.history.replaceState(null, null, window.location.pathname);
+  if (code) {
+    console.log("🔄 Menukar code ke session...");
+    window.history.replaceState(null, null, window.location.pathname); // bersihkan hash
 
     try {
       const res = await fetch("/api/auth/callback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: oauthCode })
+        body: JSON.stringify({ code })
       });
 
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
       const json = await res.json();
+      console.log("Callback response:", json);
 
       if (json.status === 200) {
         setToken(json.session.access_token);
-        localStorage.setItem(LS_REFRESH, json.session.refresh_token);
+        localStorage.setItem(LS_REFRESH, json.session.refresh_token || "");
         applyUser(json.user);
-        sessionStorage.removeItem("oauth_code");
+        
+        toast("✅ Login berhasil!", "ok");
         goPage("pg-form");
-        toast("✅ Login berhasil", "ok");
         return;
+      } else {
+        throw new Error(json.message || "Login gagal");
       }
     } catch (err) {
-      console.error("Callback error:", err);
+      console.error("❌ Callback error:", err);
+      toast("⚠️ Gagal memproses login. Coba lagi.", "err");
     }
+
+    // Bersihkan code
     sessionStorage.removeItem("oauth_code");
   }
 
-  // === NORMAL TOKEN CHECK ===
+  // === CEK LOGIN NORMAL ===
   const token = getToken();
   if (!token) {
+    console.log("No token → ke intro");
     goPage("pg-intro");
     return;
   }
 
   try {
-    const res = await fetch(API.auth.me, { headers: { ...authHeader() } });
+    console.log("Cek token existing...");
+    const res = await fetch(API.auth.me, { 
+      headers: { ...authHeader() } 
+    });
     const json = await res.json();
 
     if (json.status === 200) {
       applyUser(json.user);
+      console.log("✅ User sudah login");
+
       if (loadSession() && S.qrString && S.trxId) {
-        // restore qr session kalau ada
         resetQrPage(); renderDetail(); renderQR(); goPage("pg-qr");
-        startCountdown(S.secsLeft);
       } else {
         goPage("pg-form");
       }
       return;
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error("ME error:", e);
+  }
 
-  // Coba refresh token
+  // Refresh token kalau expired
   const rt = localStorage.getItem(LS_REFRESH);
   if (rt) {
-    // ... refresh logic kamu tetap pakai ...
+    console.log("Mencoba refresh token...");
+    // refresh logic kamu (biarin seperti semula)
   } else {
     removeToken();
     goPage("pg-intro");
